@@ -1,6 +1,11 @@
 import fs from 'fs/promises';
 import { config } from '@resume-platform/config';
 import type { FileValidationResult } from '../types';
+import { getErrorMessage } from '../utils/errors';
+
+export function fileTooLargeMessage(maxSize: number): string {
+  return `File size exceeds maximum allowed size of ${maxSize} bytes`;
+}
 
 export async function validateFile(filePath: string): Promise<FileValidationResult> {
   try {
@@ -10,7 +15,7 @@ export async function validateFile(filePath: string): Promise<FileValidationResu
     if (stats.size > config.upload.maxSize) {
       return {
         valid: false,
-        error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes`,
+        error: fileTooLargeMessage(config.upload.maxSize),
       };
     }
 
@@ -18,10 +23,10 @@ export async function validateFile(filePath: string): Promise<FileValidationResu
     await fs.access(filePath, fs.constants.R_OK);
     
     return { valid: true };
-  } catch (error: any) {
+  } catch (error) {
     return {
       valid: false,
-      error: `File validation failed: ${error.message}`,
+      error: `File validation failed: ${getErrorMessage(error)}`,
     };
   }
 }

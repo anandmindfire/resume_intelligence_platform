@@ -198,6 +198,13 @@ def test_pdf_page_returning_none_falls_back_to_ocr(monkeypatch, pdf_file, tesser
     assert OCRProcessor()._extract_from_pdf(pdf_file) == "OCR TEXT"
 
 
+def test_pdf_text_layer_read_error_falls_back_to_ocr(monkeypatch, pdf_file, tesseract, convert):
+    module = _fake_pypdf2(monkeypatch, [])
+    module.PdfReader.side_effect = ValueError("EOF marker not found")
+    convert.return_value = ["img"]
+    assert OCRProcessor()._extract_from_pdf(pdf_file) == "OCR TEXT"
+
+
 def test_pdf_with_no_pages_returns_empty_string(pdf_file, tesseract, convert, no_pypdf2):
     convert.return_value = []
     assert OCRProcessor()._extract_from_pdf(pdf_file) == ""
@@ -214,12 +221,6 @@ def test_extract_text_end_to_end_for_pdf(pdf_file, tesseract, convert, no_pypdf2
     assert OCRProcessor().extract_text(pdf_file, MIME_PDF) == "OCR TEXT"
 
 
-@pytest.mark.xfail(
-    reason="BUG: ocr_processor.py:56 imports PyPDF2 for the text-layer fast path, but PyPDF2 is not in "
-    "requirements.txt, so the ImportError is swallowed by the bare except and every PDF is "
-    "rasterised and OCR'd at 300 DPI (slow, lossy) even when it has a text layer.",
-    strict=True,
-)
 def test_pypdf2_dependency_is_declared():
     assert importlib.util.find_spec("PyPDF2") is not None
 

@@ -187,10 +187,10 @@ describe('analytics-api app', () => {
     });
 
     it('GET /api/v1/jobs/with-matches is not captured by the :id route', async () => {
-      jobs.getAllJobsWithMatches.mockResolvedValueOnce([{ ...job, matchCount: 1, avgMatchScore: 5000 }]);
+      jobs.getAllJobsWithMatches.mockResolvedValueOnce([{ ...job, matchCount: 1, avgMatchScore: 50 }]);
 
       const res = await get('/api/v1/jobs/with-matches');
-      expect(res.json()).toEqual([{ ...job, matchCount: 1, avgMatchScore: 5000 }]);
+      expect(res.json()).toEqual([{ ...job, matchCount: 1, avgMatchScore: 50 }]);
       expect(jobs.getJobById).not.toHaveBeenCalled();
     });
 

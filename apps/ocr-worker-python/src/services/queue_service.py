@@ -124,22 +124,6 @@ class QueueService:
             start_time = time.time()
             try:
                 result = self._process_job(job_data)
-                duration = time.time() - start_time
-
-                logger.info(f"Job completed successfully", {
-                    "queue": self.queue_name,
-                    "job_id": job_data.get('resumeId', 'unknown'),
-                    "duration": f"{duration:.2f}s"
-                })
-
-                # Optionally publish result to result queue
-                result_queue = f"{self.queue_name}:results"
-                self.redis_client.rpush(result_queue, json.dumps({
-                    "job": job_data,
-                    "result": result,
-                    "status": "completed"
-                }))
-
             except Exception as e:
                 duration = time.time() - start_time
                 logger.error(f"Job failed", {
@@ -172,6 +156,31 @@ class QueueService:
                         "status": "failed",
                         "attempts": attempt + 1
                     }))
+                return True
+
+            duration = time.time() - start_time
+
+            logger.info(f"Job completed successfully", {
+                "queue": self.queue_name,
+                "job_id": job_data.get('resumeId', 'unknown'),
+                "duration": f"{duration:.2f}s"
+            })
+
+            # Publish the result separately: the job already succeeded, so a
+            # publish failure must be logged but never retried/dead-lettered.
+            try:
+                result_queue = f"{self.queue_name}:results"
+                self.redis_client.rpush(result_queue, json.dumps({
+                    "job": job_data,
+                    "result": result,
+                    "status": "completed"
+                }))
+            except Exception as e:
+                logger.error("Failed to publish job result", {
+                    "queue": self.queue_name,
+                    "job_id": job_data.get('resumeId', 'unknown'),
+                    "error": str(e)
+                })
 
             return True
 

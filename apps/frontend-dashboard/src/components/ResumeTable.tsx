@@ -6,12 +6,16 @@ import type { ResumeTableProps } from '../types';
 import { resumeService } from '../services/resumeService';
 import { COPY } from '../constants';
 
+const TABLE_COLUMNS = 9;
+
 export const ResumeTable: React.FC<ResumeTableProps> = ({
   resumes,
   onRowClick,
   onDelete,
   getResumeFileUrl = resumeService.getResumeFileUrl,
-}) => (
+}) => {
+  const showActions = Boolean(onRowClick || onDelete);
+  return (
   <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
     <table className="table">
       <thead>
@@ -25,7 +29,7 @@ export const ResumeTable: React.FC<ResumeTableProps> = ({
           <th>{COPY.TABLE.EDUCATION_COUNT}</th>
           <th>{COPY.LABELS.STATUS}</th>
           <th>{COPY.TABLE.CREATED_AT}</th>
-          {(onRowClick || onDelete) && <th>{COPY.TABLE.ACTIONS}</th>}
+          {showActions && <th>{COPY.TABLE.ACTIONS}</th>}
         </tr>
       </thead>
       <tbody>
@@ -72,7 +76,7 @@ export const ResumeTable: React.FC<ResumeTableProps> = ({
             <td className="text-sm text-gray-600">
               {formatDate(resume.created_at)}
             </td>
-            {(onRowClick || onDelete) && (
+            {showActions && (
               <td>
                 <div className="flex gap-2">
                   {onRowClick && (
@@ -116,7 +120,7 @@ export const ResumeTable: React.FC<ResumeTableProps> = ({
         ))}
         {resumes.length === 0 && (
           <tr>
-            <td colSpan={onRowClick ? 10 : 9} className="text-center py-12">
+            <td colSpan={showActions ? TABLE_COLUMNS + 1 : TABLE_COLUMNS} className="text-center py-12">
               <EmptyState icon="📄" title={COPY.EMPTY.NO_RESUMES} />
             </td>
           </tr>
@@ -125,3 +129,4 @@ export const ResumeTable: React.FC<ResumeTableProps> = ({
     </table>
   </div>
 );
+};

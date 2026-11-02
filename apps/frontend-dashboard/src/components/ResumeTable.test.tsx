@@ -78,12 +78,14 @@ describe('ResumeTable', () => {
     expect(screen.getByText(COPY.EMPTY.NO_RESUMES).closest('td')).toHaveAttribute('colspan', '10');
   });
 
-  // BUG: src/components/ResumeTable.tsx:119 - the empty-state colSpan only checks `onRowClick`,
-  // but the Actions column is rendered when `onRowClick || onDelete`, so with only onDelete the
-  // empty row spans 9 of 10 columns.
-  it.fails('spans the actions column in the empty state when only onDelete is given', () => {
+  it('spans the actions column in the empty state when only onDelete is given', () => {
     render(<ResumeTable resumes={[]} onDelete={vi.fn()} />);
     expect(screen.getByText(COPY.EMPTY.NO_RESUMES).closest('td')).toHaveAttribute('colspan', '10');
+  });
+
+  it('spans only the data columns in the empty state when there are no actions', () => {
+    render(<ResumeTable resumes={[]} />);
+    expect(screen.getByText(COPY.EMPTY.NO_RESUMES).closest('td')).toHaveAttribute('colspan', '9');
   });
 
   it('calls onRowClick when a row or the view button is clicked', () => {

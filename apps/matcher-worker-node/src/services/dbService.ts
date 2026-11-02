@@ -1,8 +1,18 @@
 import { Pool } from 'pg';
 import { config } from '@resume-platform/config';
 import { MatchResult, JobRole } from '@resume-platform/role-matching';
-import { logger } from '@resume-platform/logger';
 import type { ResumeWithParsedData } from '../types';
+
+/** A job_roles row; array and numeric columns are nullable in Postgres. */
+interface JobRoleRow {
+  id: string;
+  title: string;
+  required_skills: string[] | null;
+  preferred_skills: string[] | null;
+  required_experience: number | null;
+  keywords: string[] | null;
+  location: string | null;
+}
 
 const pool = new Pool({
   host: config.database.host,
@@ -17,7 +27,7 @@ class DbService {
   async getResumeWithParsedData(resumeId: string): Promise<ResumeWithParsedData | null> {
     const client = await pool.connect();
     try {
-      const result = await client.query(
+      const result = await client.query<ResumeWithParsedData>(
         `SELECT id, name, email, phone, skills, experience, education, parsed_data 
          FROM resumes WHERE id = $1`,
         [resumeId]
@@ -31,15 +41,15 @@ class DbService {
   async getJobRoles(): Promise<JobRole[]> {
     const client = await pool.connect();
     try {
-      const result = await client.query('SELECT * FROM job_roles');
-      return result.rows.map((row: any) => ({
+      const result = await client.query<JobRoleRow>('SELECT * FROM job_roles');
+      return result.rows.map((row) => ({
         id: row.id,
         title: row.title,
         requiredSkills: row.required_skills || [],
         preferredSkills: row.preferred_skills || [],
-        requiredExperience: row.required_experience,
+        requiredExperience: row.required_experience ?? undefined,
         keywords: row.keywords || [],
-        location: row.location,
+        location: row.location ?? undefined,
       }));
     } finally {
       client.release();

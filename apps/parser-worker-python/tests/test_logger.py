@@ -1,20 +1,12 @@
-"""Tests for services.logger in the parser worker.
-
-See conftest.py: this module is shimmed with the OCR worker's logger for the
-rest of the suite. Here we load the worker's own file to document that it is
-not importable outside the Docker image.
-"""
+"""Tests for services.logger in the parser worker."""
 import importlib
 import json
 import logging
 import sys
-
-import pytest
-
-import services
+from pathlib import Path
 
 
-def test_shimmed_logger_produces_json(capsys):
+def test_logger_produces_json(capsys):
     from services.logger import get_logger
 
     logger = get_logger("parser.test.shim")
@@ -25,17 +17,22 @@ def test_shimmed_logger_produces_json(capsys):
     assert isinstance(logger, logging.Logger)
 
 
-@pytest.mark.xfail(
-    reason="BUG: parser-worker-python/src/services/logger.py:4-5 inserts a non-existent path "
-    "(<worker>/ocr-worker-python/src) and then imports `services.logger` -- itself -- so importing it "
-    "raises a circular ImportError. It only works in Docker because the Dockerfile overwrites "
-    "services/ with the OCR worker's copy; running the worker locally (python src/main.py) crashes.",
-    raises=ImportError,
-    strict=True,
-)
-def test_worker_logger_module_is_importable_standalone(monkeypatch):
-    monkeypatch.delitem(sys.modules, "services.logger")
-    monkeypatch.setattr(services, "logger", None, raising=False)
-    monkeypatch.setattr(sys, "path", list(sys.path))
+def test_worker_logger_module_is_importable_standalone():
     module = importlib.import_module("services.logger")
     assert callable(module.get_logger)
+    assert module.__file__.startswith(str(Path(__file__).resolve().parents[1] / "src"))
+
+
+def test_context_dict_reaches_json_output():
+    import io
+
+    from services.logger import get_logger
+
+    logger = get_logger("parser.test.context")
+    [handler] = logger.handlers
+    buf = io.StringIO()
+    handler.setStream(buf)
+    logger.info("Processing job done", {"resume_id": "r1"})
+    record = json.loads(buf.getvalue())
+    assert record["message"] == "Processing job done"
+    assert record["context"] == {"resume_id": "r1"}

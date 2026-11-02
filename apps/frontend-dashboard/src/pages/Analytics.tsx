@@ -228,7 +228,7 @@ export const Analytics: React.FC = () => {
                         <span
                           className={`match-score ${scoreClass} px-2 py-1 rounded text-sm font-bold`}
                         >
-                          {formatMatchScore(score)}
+                          {formatMatchScore(match.match_score)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

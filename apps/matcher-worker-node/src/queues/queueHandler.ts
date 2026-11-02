@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
+import { getErrorMessage } from '../utils/errors';
 
 // Redis client for simple list queues (used by Python workers)
 const redisClient = new Redis({
@@ -24,9 +25,9 @@ export class QueueHandler {
             }));
 
             logger.info('Insights aggregation job queued', { resumeId });
-        } catch (error: any) {
+        } catch (error) {
             logger.error('Failed to queue insights job', {
-                error: error.message,
+                error: getErrorMessage(error),
                 resumeId,
             });
             // We don't throw here to avoid failing the matching job if insights fail to queue

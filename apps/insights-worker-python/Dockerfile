@@ -10,7 +10,6 @@ COPY apps/insights-worker-python/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY apps/insights-worker-python/src ./src
-COPY apps/ocr-worker-python/src/services ./src/services
 
 WORKDIR /app/src
 

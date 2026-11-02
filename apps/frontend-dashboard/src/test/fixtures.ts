@@ -33,7 +33,7 @@ export function makeMatchDetail(overrides: Partial<JobMatchDetail> = {}): JobMat
   return {
     jobId: 'JOB-1',
     jobTitle: 'Frontend Developer',
-    matchScore: 0.8,
+    matchScore: 80,
     skillsMatched: ['React'],
     skillsMissing: ['CSS'],
     experienceMatch: true,
@@ -41,8 +41,8 @@ export function makeMatchDetail(overrides: Partial<JobMatchDetail> = {}): JobMat
     requirementsMet: 3,
     requirementsTotal: 4,
     matchedResumes: [
-      { resumeId: 'r-1', resumeName: 'Jane Doe', matchScore: 0.6, skillsMatched: ['react'] },
-      { resumeId: 'r-2', resumeName: 'John Roe', matchScore: 0.9, skillsMatched: ['TypeScript'] },
+      { resumeId: 'r-1', resumeName: 'Jane Doe', matchScore: 60, skillsMatched: ['react'] },
+      { resumeId: 'r-2', resumeName: 'John Roe', matchScore: 90, skillsMatched: ['TypeScript'] },
     ],
     ...overrides,
   };
@@ -55,7 +55,7 @@ export function makeRoleMatch(overrides: Partial<RoleMatch> = {}): RoleMatch {
     resume_id: 'r-1',
     name: 'Jane Doe',
     file_name: 'jane.pdf',
-    match_score: 0.75,
+    match_score: 75,
     matched_skills: ['React', 'TypeScript'],
     ...overrides,
   };

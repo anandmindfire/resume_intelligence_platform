@@ -38,7 +38,7 @@ describe('JobCard', () => {
   });
 
   it('shows a green score for high matches with pluralised count', () => {
-    render(<JobCard job={makeJob()} matchCount={3} avgMatchScore={0.82} onClick={vi.fn()} />);
+    render(<JobCard job={makeJob()} matchCount={3} avgMatchScore={82} onClick={vi.fn()} />);
     expect(screen.getByText('82%')).toHaveClass('text-green-600');
     expect(screen.getByText('3 matches')).toBeInTheDocument();
   });
@@ -55,7 +55,7 @@ describe('JobCard', () => {
   });
 
   it('shows the score when only an average is provided', () => {
-    render(<JobCard job={makeJob()} avgMatchScore={0.3} onClick={vi.fn()} />);
+    render(<JobCard job={makeJob()} avgMatchScore={30} onClick={vi.fn()} />);
     expect(screen.getByText('30%')).toBeInTheDocument();
     expect(screen.getByText('0 matches')).toBeInTheDocument();
   });

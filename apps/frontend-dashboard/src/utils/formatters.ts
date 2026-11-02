@@ -1,15 +1,12 @@
 export function formatDate(dateString?: string): string {
   if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateString;
-  }
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export function formatSkills(skills?: string[]): string {
@@ -18,22 +15,16 @@ export function formatSkills(skills?: string[]): string {
   return `${skills.slice(0, 3).join(', ')} +${skills.length - 3} more`;
 }
 
+/**
+ * Normalises an API match score to a number in [0, 100].
+ * All API scores are already on a 0-100 scale (analytics `match_score` may arrive
+ * as a string such as "82.50"); this only parses and clamps, it never rescales.
+ */
 export function normalizeMatchScore(score?: number | string): number {
   if (score === undefined || score === null) return 0;
   const numScore = typeof score === 'string' ? parseFloat(score) : score;
   if (isNaN(numScore)) return 0;
-
-  // Handle various score ranges:
-  // 1. 0.0 - 1.0 (Unit range)
-  if (numScore > 0 && numScore <= 1) {
-    return numScore * 100;
-  }
-  // 2. > 100 (likely Basis Points 0-10000 range)
-  if (numScore > 100) {
-    return numScore / 100;
-  }
-  // 3. 0 - 100 (Percentage range)
-  return numScore;
+  return Math.min(100, Math.max(0, numScore));
 }
 
 export function formatMatchScore(score?: number | string): string {

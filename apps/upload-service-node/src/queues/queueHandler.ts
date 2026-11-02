@@ -4,6 +4,7 @@ import { logger } from '@resume-platform/logger';
 import { config } from '@resume-platform/config';
 import Redis from 'ioredis';
 import type { OCRJobData } from '../types';
+import { getErrorMessage } from '../utils/errors';
 
 // Redis client for simple list queues (used by Python workers)
 const redisClient = new Redis({
@@ -37,9 +38,9 @@ export class QueueHandler {
         resumeId: data.resumeId,
         fileName: data.fileName
       });
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Failed to queue OCR job', {
-        error: error.message,
+        error: getErrorMessage(error),
         resumeId: data.resumeId,
       });
       throw error;
@@ -64,9 +65,9 @@ export class QueueHandler {
       }));
 
       logger.info('Parser job queued to both BullMQ and Redis list', { resumeId });
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Failed to queue parser job', {
-        error: error.message,
+        error: getErrorMessage(error),
         resumeId,
       });
       throw error;
@@ -82,9 +83,9 @@ export class QueueHandler {
         mimeType: '', // Not needed for matcher job
       } as QueueJobData);
       logger.info('Matcher job queued', { resumeId });
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Failed to queue matcher job', {
-        error: error.message,
+        error: getErrorMessage(error),
         resumeId,
       });
       throw error;

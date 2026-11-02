@@ -132,12 +132,6 @@ def test_get_top_skills_default_limit(pg):
     assert pg.cursor.execute.call_args.args[1] == (DEFAULT_TOP_SKILLS_LIMIT,)
 
 
-@pytest.mark.xfail(
-    reason="BUG: db_service.py:65-68 / 82-85 / 98-101 call cursor.close() in `finally` whenever conn is "
-    "set; if conn.cursor() raises, `cursor` is unbound so an UnboundLocalError masks the real DB error "
-    "and the connection is never returned to the pool (pool leak).",
-    strict=True,
-)
 @pytest.mark.parametrize("method", ["get_resume_count", "get_processed_count", "get_top_skills"])
 def test_cursor_creation_failure_surfaces_db_error_and_returns_connection(pg, method):
     pg.conn.cursor.side_effect = psycopg2.InterfaceError("connection already closed")

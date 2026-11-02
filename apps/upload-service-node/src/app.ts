@@ -56,10 +56,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, rateLimitOptions);
   await app.register(cors, corsOptions);
 
+  // Oversized files are flagged `truncated` rather than aborting the request, so the upload handlers can
+  // reject them (413 for a single upload, a per-file failure in a batch) without losing the other files.
   await app.register(multipart, {
     limits: {
       fileSize: config.upload.maxSize,
     },
+    throwFileSizeLimit: false,
   });
 
   if (config.apiDocs.enabled) {

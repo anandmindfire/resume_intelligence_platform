@@ -53,6 +53,7 @@ class DBService:
     def get_resume_count(self) -> int:
         """Get total resume count"""
         conn = None
+        cursor = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -63,13 +64,17 @@ class DBService:
             logger.error(f"Failed to get resume count: {e}")
             raise
         finally:
-            if conn:
-                cursor.close()
-                self._return_connection(conn)
+            try:
+                if cursor:
+                    cursor.close()
+            finally:
+                if conn:
+                    self._return_connection(conn)
 
     def get_processed_count(self) -> int:
         """Get count of processed resumes"""
         conn = None
+        cursor = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -80,13 +85,17 @@ class DBService:
             logger.error(f"Failed to get processed count: {e}")
             raise
         finally:
-            if conn:
-                cursor.close()
-                self._return_connection(conn)
+            try:
+                if cursor:
+                    cursor.close()
+            finally:
+                if conn:
+                    self._return_connection(conn)
 
     def get_top_skills(self, limit: int = DEFAULT_TOP_SKILLS_LIMIT) -> List[Dict[str, Any]]:
         """Get top skills"""
         conn = None
+        cursor = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -96,9 +105,12 @@ class DBService:
             logger.error(f"Failed to get top skills: {e}")
             raise
         finally:
-            if conn:
-                cursor.close()
-                self._return_connection(conn)
+            try:
+                if cursor:
+                    cursor.close()
+            finally:
+                if conn:
+                    self._return_connection(conn)
 
     @classmethod
     def close_pool(cls):

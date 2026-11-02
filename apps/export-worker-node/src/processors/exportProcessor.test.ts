@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 vi.mock('../services/dbService', () => ({ dbService: { getResumesForExport: vi.fn() } }));
 vi.mock('@resume-platform/logger', () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
 
-import { processExportJob } from './exportProcessor';
+import { parseExportJobData, processExportJob } from './exportProcessor';
 import { dbService } from '../services/dbService';
 
 const getResumes = vi.mocked(dbService.getResumesForExport);
@@ -63,5 +63,33 @@ describe('processExportJob', () => {
   it('propagates database failures so the job is retried', async () => {
     getResumes.mockRejectedValueOnce(new Error('db down'));
     await expect(processExportJob(makeJob({ outputPath: path.join(root, 'x.csv') }))).rejects.toThrow('db down');
+  });
+
+  it('rejects a job without a usable outputPath before touching the database', async () => {
+    await expect(processExportJob(makeJob({}))).rejects.toThrow('missing a valid outputPath');
+    await expect(processExportJob(makeJob({ outputPath: '' }))).rejects.toThrow('missing a valid outputPath');
+    expect(getResumes).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseExportJobData', () => {
+  const base = { resumeId: '', filePath: '', fileName: '', mimeType: '' };
+
+  it('accepts an output path with or without resume ids', () => {
+    expect(parseExportJobData({ ...base, outputPath: '/x.csv' })).toEqual({ outputPath: '/x.csv', resumeIds: undefined });
+    expect(parseExportJobData({ ...base, outputPath: '/x.csv', resumeIds: ['a', 'b'] })).toEqual({
+      outputPath: '/x.csv',
+      resumeIds: ['a', 'b'],
+    });
+  });
+
+  it.each([[42], [null], [undefined], [{}]])('rejects outputPath %j', (outputPath) => {
+    expect(() => parseExportJobData({ ...base, outputPath })).toThrow('missing a valid outputPath');
+  });
+
+  it.each([['a'], [[1, 2]], [['a', 2]], [{}]])('rejects resumeIds %j', (resumeIds) => {
+    expect(() => parseExportJobData({ ...base, outputPath: '/x.csv', resumeIds })).toThrow(
+      'resumeIds must be an array of strings'
+    );
   });
 });

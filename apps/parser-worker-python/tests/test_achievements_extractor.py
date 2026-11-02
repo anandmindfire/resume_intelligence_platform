@@ -26,7 +26,7 @@ def test_numbered_entries_are_classified():
     )
     items = extract_achievements(text)
     assert [i["type"] for i in items] == ["certification", "publication", "presentation", "achievement"]
-    assert items[0]["title"] == "1. Certified Kubernetes Administrator (CKA)"
+    assert items[0]["title"] == "Certified Kubernetes Administrator (CKA)"
     assert all(i["date"] is None and i["issuer"] is None for i in items)
 
 
@@ -40,7 +40,7 @@ def test_entry_with_issuer_date_and_description():
     )
     [item] = extract_achievements(text)
     assert item == {
-        "title": "- Employee of the Year award",
+        "title": "Employee of the Year award",
         "description": "for leading the platform migration to the cloud",
         "date": "dec 2020",
         "issuer": "Acme Corporation",
@@ -64,12 +64,6 @@ def test_section_ends_at_next_major_section(sample_resume):
     assert [i["type"] for i in items] == ["certification", "award"]
 
 
-@pytest.mark.xfail(
-    reason="BUG: achievements_extractor.py:31-34 appends the current entry when the next section starts "
-    "and lines 62-63 append it again after the loop, so the last achievement is duplicated whenever "
-    "another section follows.",
-    strict=True,
-)
 def test_last_achievement_not_duplicated_when_followed_by_section():
     text = "Awards\n- Employee of the Year award\nSkills\nPython"
     assert len(extract_achievements(text)) == 1

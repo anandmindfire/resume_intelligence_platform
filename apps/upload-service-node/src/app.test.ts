@@ -180,28 +180,41 @@ describe('upload-service app', () => {
       expect(db.createResume).not.toHaveBeenCalled();
     });
 
-    // BUG: with request.file() + pipeline, @fastify/multipart truncates files at UPLOAD_MAX_SIZE instead of
-    // throwing. The controller never checks `data.file.truncated`, and the truncated file is exactly at the
-    // limit so validateFile passes — the upload is accepted and a corrupted file is stored and queued.
-    it.fails('rejects files over the size limit with a 4xx', async () => {
+    it('rejects files over the size limit with 413 and stores nothing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/upload/single',
         ...multipart([resumeFile('big.pdf', PDF, 'x'.repeat(2048))]),
       });
-      expect(res.statusCode).toBeGreaterThanOrEqual(400);
-      expect(res.statusCode).toBeLessThan(500);
+
+      expect(res.statusCode).toBe(413);
+      expect(res.json()).toEqual({ error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes` });
+      expect(await storedFiles()).toEqual([]);
+      expect(db.createResume).not.toHaveBeenCalled();
+      expect(queue.queueOCRJob).not.toHaveBeenCalled();
     });
 
-    it('currently stores oversized files truncated to the size limit', async () => {
+    it('accepts a file exactly at the size limit', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/upload/single',
-        ...multipart([resumeFile('big.pdf', PDF, 'x'.repeat(2048))]),
+        ...multipart([resumeFile('exact.pdf', PDF, 'x'.repeat(config.upload.maxSize))]),
       });
 
       expect(res.statusCode).toBe(201);
       expect(db.createResume).toHaveBeenCalledWith(expect.objectContaining({ fileSize: config.upload.maxSize }));
+    });
+
+    it('leaves the server healthy after rejecting a large disallowed file', async () => {
+      const rejected = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/single',
+        ...multipart([resumeFile('notes.txt', 'text/plain', 'x'.repeat(4096))]),
+      });
+      expect(rejected.statusCode).toBe(400);
+
+      const accepted = await app.inject({ method: 'POST', url: '/api/v1/upload/single', ...multipart([resumeFile()]) });
+      expect(accepted.statusCode).toBe(201);
     });
 
     it('returns 500 when the database insert fails', async () => {
@@ -259,24 +272,65 @@ describe('upload-service app', () => {
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'No files uploaded' });
+      expect(res.json()).toEqual({ error: 'No files uploaded', results: [] });
     });
 
-    // BUG: a part with a disallowed MIME type is skipped with `continue` without draining its stream,
-    // so busboy never advances and the request hangs until the client times out.
-    it.fails(
-      'reports disallowed file types per file instead of hanging',
-      async () => {
-        const res = await app.inject({
-          method: 'POST',
-          url: '/api/v1/upload/multiple',
-          ...many(resumeFile('a.pdf'), resumeFile('c.txt', 'text/plain')),
-        });
-        expect(res.statusCode).toBe(201);
-        expect(res.json()).toMatchObject({ total: 2, success: 1, failed: 1 });
-      },
-      1000
-    );
+    it('reports disallowed file types per file instead of hanging', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/multiple',
+        ...many(resumeFile('a.pdf'), resumeFile('c.txt', 'text/plain', 'x'.repeat(4096)), resumeFile('b.png', 'image/png', 'png')),
+      });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toEqual({
+        total: 3,
+        success: 2,
+        failed: 1,
+        results: expect.arrayContaining([
+          { resumeId: expect.stringMatching(UUID_RE), fileName: 'a.pdf', status: 'uploaded' },
+          { resumeId: expect.stringMatching(UUID_RE), fileName: 'b.png', status: 'uploaded' },
+          { fileName: 'c.txt', status: 'failed', error: 'File type text/plain not allowed' },
+        ]),
+      });
+      expect(await storedFiles()).toHaveLength(2);
+    }, 2000);
+
+    it('reports files over the size limit per file and stores nothing for them', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/multiple',
+        ...many(resumeFile('ok.pdf'), resumeFile('big.pdf', PDF, 'x'.repeat(2048))),
+      });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toMatchObject({ total: 2, success: 1, failed: 1 });
+      expect(res.json().results).toContainEqual({
+        fileName: 'big.pdf',
+        status: 'failed',
+        error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes`,
+      });
+      expect(await storedFiles()).toHaveLength(1);
+      expect(db.createResume).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 400 with the rejection reasons when every file is rejected', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/multiple',
+        ...many(resumeFile('c.txt', 'text/plain'), resumeFile('big.pdf', PDF, 'x'.repeat(2048))),
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({
+        error: 'No files uploaded',
+        results: [
+          { fileName: 'c.txt', status: 'failed', error: 'File type text/plain not allowed' },
+          { fileName: 'big.pdf', status: 'failed', error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes` },
+        ],
+      });
+      expect(await storedFiles()).toEqual([]);
+    });
 
     it('marks a file as failed and removes it when recording it fails', async () => {
       db.createResume.mockRejectedValueOnce(new Error('duplicate key')).mockResolvedValueOnce(undefined);
@@ -466,7 +520,7 @@ describe('upload-service app', () => {
         format: 'binary',
         description: 'Resume file',
       });
-      expect(Object.keys(single.responses)).toEqual(['201', '400', '500']);
+      expect(Object.keys(single.responses)).toEqual(['201', '400', '413', '500']);
     });
 
     it('serves Swagger UI', async () => {

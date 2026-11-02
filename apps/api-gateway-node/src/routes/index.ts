@@ -17,9 +17,6 @@ export async function registerRoutes(app: FastifyInstance, options: { docs?: boo
     prefix: gatewayRoutes.upload.prefix,
     rewritePrefix: gatewayRoutes.upload.rewritePrefix,
     http2: false,
-    preHandler: async (request, reply) => {
-      // Optional: add custom logic before proxying
-    },
     replyOptions: {
       rewriteRequestHeaders: (originalReq, headers) => {
         return {

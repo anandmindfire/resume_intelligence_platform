@@ -103,16 +103,19 @@ describe('useAnalyticsPage', () => {
     expect(result.current.skills).toEqual([]);
   });
 
-  // BUG: src/hooks/useAnalyticsPage.ts:60-61 - `allRejected` is hard-coded to `false`, so when
-  // every chart request fails the hook never surfaces an error and the page silently shows
-  // empty charts instead of the "Something went wrong / Retry" state.
-  it.fails('reports an error when all chart requests fail', async () => {
+  it('reports an error when all chart requests fail', async () => {
     svc.getTopSkills.mockRejectedValue(new Error('down'));
     svc.getExperienceStats.mockRejectedValue(new Error('down'));
     svc.getEducationStats.mockRejectedValue(new Error('down'));
     const { result } = renderHook(() => useAnalyticsPage());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).not.toBeNull();
+  });
+
+  it('does not report an error when only some chart requests fail', async () => {
+    svc.getTopSkills.mockRejectedValue(new Error('down'));
+    const { result } = await renderLoaded();
+    expect(result.current.error).toBeNull();
   });
 
   it('defaults uniqueRoles to [] when missing from the response', async () => {

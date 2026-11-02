@@ -32,22 +32,22 @@ describe('JobDetailModal', () => {
   });
 
   it('shows the overall match score with colour coding', () => {
-    renderModal({ matchDetail: makeMatchDetail({ matchScore: 0.8 }) });
+    renderModal({ matchDetail: makeMatchDetail({ matchScore: 80 }) });
     expect(screen.getByText(COPY.LABELS.OVERALL_MATCH_SCORE)).toBeInTheDocument();
     expect(screen.getByText('80%')).toHaveClass('text-green-600');
   });
 
   it.each([
-    [0.55, 'text-yellow-600', 'bg-yellow-500'],
-    [0.2, 'text-gray-400', 'bg-gray-400'],
+    [55, 'text-yellow-600', 'bg-yellow-500'],
+    [20, 'text-gray-400', 'bg-gray-400'],
   ])('colours score %s with %s', (score, textClass, barClass) => {
     const { container } = renderModal({
       matchDetail: makeMatchDetail({ matchScore: score, matchedResumes: [] }),
     });
-    const label = `${Math.round(score * 100)}%`;
+    const label = `${Math.round(score)}%`;
     expect(screen.getByText(label)).toHaveClass(textClass);
     const bar = container.querySelector(`.h-3.${barClass}`) as HTMLElement;
-    expect(bar.style.width).toBe(`${score * 100}%`);
+    expect(bar.style.width).toBe(`${score}%`);
   });
 
   it('shows requirement satisfaction from the match detail', () => {
@@ -109,12 +109,12 @@ describe('JobDetailModal', () => {
   it('shows a singular resume count, low score colour and +N skills for a matched resume', () => {
     renderModal({
       matchDetail: makeMatchDetail({
-        matchScore: 0.1,
+        matchScore: 10,
         matchedResumes: [
           {
             resumeId: 'r-3',
             resumeName: 'Solo',
-            matchScore: 0.3,
+            matchScore: 30,
             skillsMatched: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
           },
         ],

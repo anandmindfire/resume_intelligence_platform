@@ -282,18 +282,15 @@ def test_consume_job_redis_connection_error_backs_off(make_service, fake_redis, 
     assert no_sleep == [5]
 
 
-@pytest.mark.xfail(
-    reason="BUG: queue_service.py publishes the result inside the same try as the processor call, "
-    "so a failure to publish (e.g. non-JSON-serializable result or a Redis hiccup) is treated as a "
-    "job failure and a job that already succeeded is re-run / dead-lettered.",
-    strict=True,
-)
 def test_result_publish_failure_does_not_retry_a_successful_job(make_service, fake_redis):
     _, client = fake_redis
     _queue_job(client, {"resumeId": "r1"})
     processor = MagicMock(return_value={"when": object()})  # not JSON serializable
-    make_service(processor)._consume_job()
+    assert make_service(processor)._consume_job() is True
+    processor.assert_called_once()
     client.zadd.assert_not_called()
+    failed_queues = [c.args[0] for c in client.rpush.call_args_list]
+    assert not any(q.endswith(":failed") for q in failed_queues)
 
 
 # --------------------------------------------------------------------------- start / stop

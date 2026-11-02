@@ -44,7 +44,6 @@ export const Resumes: React.FC = () => {
       page: 1,
     });
     setSelectedRoleId('');
-    setTimeout(applyFilters, 100);
   };
 
   const handleExport = async () => {
@@ -82,7 +81,9 @@ export const Resumes: React.FC = () => {
     );
   }
 
-  const hasActiveFilters = Object.values(filters).some((v) => v && v !== 0);
+  const hasActiveFilters = Boolean(
+    filters.keyword || filters.location || filters.roleId || (filters.minScore ?? 0) > 0
+  );
 
   return (
     <div className="animate-fade-in space-y-6">

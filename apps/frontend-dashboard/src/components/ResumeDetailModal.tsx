@@ -22,6 +22,7 @@ export const ResumeDetailModal: React.FC<ResumeDetailModalProps> = ({
   if (!resume) return null;
 
   const fileUrl = getResumeFileUrl(resume.id);
+  const skills = resume.skills ?? [];
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -94,8 +95,8 @@ export const ResumeDetailModal: React.FC<ResumeDetailModalProps> = ({
                   <h4 className="text-lg font-bold text-gray-900">{COPY.LABELS.SKILLS}</h4>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {(resume.skills || []).length > 0 ? (
-                    resume.skills!.map((skill, idx) => (
+                  {skills.length > 0 ? (
+                    skills.map((skill, idx) => (
                       <span
                         key={idx}
                         className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium border border-purple-200"

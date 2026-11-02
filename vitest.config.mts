@@ -16,6 +16,8 @@ export default defineConfig({
         '**/*.d.ts',
       ],
       reporter: ['text-summary', 'html', 'lcov'],
+      // Floors sit below current coverage (~99% lines, ~96% branches) to catch regressions, not to chase a number.
+      thresholds: { lines: 90, statements: 90, functions: 90, branches: 85 },
     },
   },
 });

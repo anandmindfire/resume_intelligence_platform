@@ -79,8 +79,8 @@ describe('jobService', () => {
       expect(result).toEqual({
         jobId: 'job-1',
         jobTitle: 'Backend Engineer',
-        // average of 80, 60 and 0, scaled by 100
-        matchScore: Math.round(((80 + 60 + 0) / 3) * 100),
+        // average of 80, 60 and 0 on the 0-100 scale
+        matchScore: 46.67,
         skillsMatched: ['node.js', 'Docker'],
         skillsMissing: ['PostgreSQL'],
         experienceMatch: true,
@@ -89,8 +89,8 @@ describe('jobService', () => {
         requirementsMet: 3,
         requirementsTotal: 4,
         matchedResumes: [
-          { resumeId: 'r1', resumeName: 'Jane', matchScore: 8000, skillsMatched: ['node.js', 'Docker'] },
-          { resumeId: 'r2', resumeName: 'bob.pdf', matchScore: 6000, skillsMatched: ['Docker'] },
+          { resumeId: 'r1', resumeName: 'Jane', matchScore: 80, skillsMatched: ['node.js', 'Docker'] },
+          { resumeId: 'r2', resumeName: 'bob.pdf', matchScore: 60, skillsMatched: ['Docker'] },
           { resumeId: 'r3', resumeName: 'Unknown', matchScore: 0, skillsMatched: [] },
         ],
       });
@@ -112,15 +112,13 @@ describe('jobService', () => {
       });
     });
 
-    // Match scores are stored on a 0-100 scale, so multiplying by 100 again yields 0-10000.
-    // The frontend's normalizeMatchScore() guesses the scale to compensate. Kept as a characterization
-    // test so a fix to the scaling is a deliberate API change.
-    it('returns scores multiplied by 100 (0-10000 range)', async () => {
+    it('reports scores on the same 0-100 scale as stored, rounded to two decimals', async () => {
       jobs.findById.mockResolvedValue(job);
-      matches.findByRole.mockResolvedValue([matchRow({ match_score: '82.50' })]);
+      matches.findByRole.mockResolvedValue([matchRow({ match_score: '82.50' }), matchRow({ match_score: '71.333' })]);
 
       const result = await jobService.getJobMatches('job-1');
-      expect(result?.matchScore).toBe(8250);
+      expect(result?.matchScore).toBe(76.92);
+      expect(result?.matchedResumes.map((m) => m.matchScore)).toEqual([82.5, 71.33]);
     });
   });
 
@@ -131,7 +129,7 @@ describe('jobService', () => {
       .mockResolvedValueOnce([]);
 
     await expect(jobService.getAllJobsWithMatches()).resolves.toEqual([
-      { ...job, matchCount: 2, avgMatchScore: 6000 },
+      { ...job, matchCount: 2, avgMatchScore: 60 },
       { ...job, id: 'job-2', matchCount: 0, avgMatchScore: 0 },
     ]);
     expect(matches.findByRole).toHaveBeenCalledWith('job-1', 0, 1000);

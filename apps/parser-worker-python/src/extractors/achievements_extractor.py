@@ -31,6 +31,7 @@ def extract_achievements(text: str) -> List[Dict[str, Any]]:
         if in_section and any(keyword in line_lower for keyword in ['experience', 'education', 'projects', 'skills']):
             if current_achievement:
                 achievements.append(current_achievement)
+            current_achievement = {}  # already saved; don't add it again after the loop
             break
         
         if in_section:
@@ -38,12 +39,13 @@ def extract_achievements(text: str) -> List[Dict[str, Any]]:
             if _is_achievement_entry(line_stripped):
                 if current_achievement:
                     achievements.append(current_achievement)
+                title = _strip_bullet(line_stripped)
                 current_achievement = {
-                    'title': line_stripped,
+                    'title': title,
                     'description': '',
                     'date': None,
                     'issuer': None,
-                    'type': _classify_achievement_type(line_stripped),
+                    'type': _classify_achievement_type(title),
                 }
             # Date
             elif current_achievement and _contains_date(line_stripped) and not current_achievement.get('date'):
@@ -89,6 +91,11 @@ def _is_achievement_entry(line: str) -> bool:
             return True
     
     return False
+
+def _strip_bullet(line: str) -> str:
+    """Remove a leading bullet / list number ("- ", "1. ", "2) ")"""
+    return re.sub(r'^(?:[•\-\*\+]|\d+[\.\)])\s+', '', line).strip() or line
+
 
 def _classify_achievement_type(line: str) -> str:
     """Classify the type of achievement"""

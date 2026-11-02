@@ -1,4 +1,3 @@
-import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
 import { queueConsumer } from '@resume-platform/queue-lib';
 import { processExportJob } from './processors/exportProcessor';
@@ -6,7 +5,7 @@ import { processExportJob } from './processors/exportProcessor';
 const main = async () => {
   logger.info('Starting Export Worker');
 
-  const worker = queueConsumer.createWorker(
+  queueConsumer.createWorker(
     'export-queue',
     processExportJob,
     {

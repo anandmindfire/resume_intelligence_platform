@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/release
 
 # Copy source code
 COPY apps/parser-worker-python/src ./src
-COPY apps/ocr-worker-python/src/services ./src/services
 
 WORKDIR /app/src
 
