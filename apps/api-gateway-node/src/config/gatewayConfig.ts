@@ -60,3 +60,18 @@ export const corsConfig = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
+
+/**
+ * Upstream services whose OpenAPI specs the gateway re-publishes with gateway paths.
+ * Each spec is fetched from the upstream of its first route.
+ */
+export const docsSources: Record<string, { title: string; routes: GatewayRouteConfig[] }> = {
+  upload: {
+    title: 'Upload Service',
+    routes: [gatewayRoutes.upload],
+  },
+  analytics: {
+    title: 'Analytics API',
+    routes: [gatewayRoutes.analytics, gatewayRoutes.jobs, gatewayRoutes.resumes],
+  },
+};

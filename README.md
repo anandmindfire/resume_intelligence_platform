@@ -238,6 +238,38 @@ pnpm run swarm:stop
 
 Health: `curl http://localhost:3000/health`
 
+**API docs (Swagger UI):** each HTTP service serves Swagger UI at `/docs` and its OpenAPI 3 spec at `/docs/json`.
+
+| Docs                   | URL                        | Notes                                                                                |
+| ---------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| API Gateway (all APIs) | http://localhost:3000/docs | Use "Select a definition" to browse upload and analytics APIs with **gateway** paths |
+| Upload Service         | http://localhost:3001/docs | Includes internal endpoints not exposed through the gateway                          |
+| Analytics API          | http://localhost:3002/docs |                                                                                      |
+
+Set `API_DOCS_ENABLED=false` to turn the docs off. Route schemas are documentation only: they do not validate requests or reshape responses.
+
+---
+
+## Testing
+
+| Command              | What it runs                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| `pnpm test`          | Every workspace's Vitest suite through Turbo (no build needed; packages resolve to `src`) |
+| `pnpm test:unit`     | All Node packages, services and the frontend in a single Vitest run                       |
+| `pnpm test:coverage` | Same as `test:unit` with a combined coverage report in `coverage/`                        |
+| `pnpm test:python`   | pytest for the OCR, parser and insights workers (uses `$PYTHON`, default `python3`)       |
+
+Per package: `pnpm --filter @resume-platform/<name> test` (or `test:watch`, `test:coverage`). Tests live next to the code as `*.test.ts(x)`; Python tests are in each worker's `tests/`.
+
+Python setup (once, in a virtualenv):
+
+```bash
+for w in ocr parser insights; do pip install -r apps/$w-worker-python/requirements-dev.txt; done
+pnpm test:python
+```
+
+Known bugs are captured as expected failures (`it.fails` in Vitest, `xfail(strict=True)` in pytest) with a `BUG:` note; they start failing loudly once fixed, so the marker can be removed.
+
 ---
 
 ## Start scripts compared

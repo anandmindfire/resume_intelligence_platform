@@ -15,6 +15,9 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint -- --fix",
     "test": "turbo run test",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:python": "bash scripts/test-python.sh",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
@@ -63,13 +66,15 @@
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.39.2",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "prettier": "^3.1.0",
     "turbo": "^1.11.2",
     "typescript": "^5.3.2",
-    "typescript-eslint": "^8.53.0"
+    "typescript-eslint": "^8.53.0",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18.0.0",

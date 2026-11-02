@@ -10,25 +10,29 @@
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "jest"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "fastify": "^4.24.3",
     "@fastify/cors": "^8.4.0",
     "@fastify/helmet": "^11.1.1",
-    "@fastify/rate-limit": "^9.1.0",
     "@fastify/multipart": "^8.0.0",
-    "uuid": "^9.0.1",
-    "pg": "^8.11.3",
-    "ioredis": "^5.3.2",
+    "@fastify/rate-limit": "^9.1.0",
+    "@fastify/swagger": "^8.15.0",
+    "@fastify/swagger-ui": "^4.2.0",
     "@resume-platform/config": "*",
     "@resume-platform/logger": "*",
-    "@resume-platform/queue-lib": "*"
+    "@resume-platform/queue-lib": "*",
+    "fastify": "^4.24.3",
+    "ioredis": "^5.3.2",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/uuid": "^9.0.7",
-    "@types/pg": "^8.10.9",
     "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.2"
   }

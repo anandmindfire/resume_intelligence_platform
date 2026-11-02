@@ -2,9 +2,14 @@ import { FastifyInstance } from 'fastify';
 import httpProxy from '@fastify/http-proxy';
 import { gatewayRoutes } from '../config/gatewayConfig';
 import { registerHealthRoutes } from './health';
+import { registerDocsRoutes } from './docs';
+import { apiInfoSchema, apiV1InfoSchema } from '../schemas/gateway.schemas';
 
-export async function registerRoutes(app: FastifyInstance) {
+export async function registerRoutes(app: FastifyInstance, options: { docs?: boolean } = {}) {
   await registerHealthRoutes(app);
+  if (options.docs) {
+    await registerDocsRoutes(app);
+  }
 
   // Proxy to upload service
   await app.register(httpProxy, {
@@ -50,7 +55,7 @@ export async function registerRoutes(app: FastifyInstance) {
   });
 
   // API v1 info (primary)
-  app.get('/api/v1', async () => ({
+  app.get('/api/v1', { schema: apiV1InfoSchema }, async () => ({
     message: 'Resume Intelligence Platform API',
     version: '1.0.0',
     apiVersion: 'v1',
@@ -63,7 +68,7 @@ export async function registerRoutes(app: FastifyInstance) {
   }));
 
   // Legacy /api root (backward compatibility)
-  app.get('/api', async () => ({
+  app.get('/api', { schema: apiInfoSchema }, async () => ({
     message: 'Resume Intelligence Platform API Gateway',
     version: '1.0.0',
     endpoints: {

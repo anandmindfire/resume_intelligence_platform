@@ -81,6 +81,11 @@ export const config = {
     url: process.env.ANALYTICS_API_URL || 'http://localhost:3002',
   },
 
+  apiDocs: {
+    /** Serve Swagger UI at /docs and the OpenAPI spec at /docs/json (set API_DOCS_ENABLED=false to disable). */
+    enabled: process.env.API_DOCS_ENABLED !== 'false',
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'your-secret-key',
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
