@@ -6,12 +6,15 @@ import { pipeline } from 'stream/promises';
 import { createWriteStream, createReadStream } from 'fs';
 import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
-import { validateFile } from '../validators/fileValidator';
+import type { MultipartFile } from '@fastify/multipart';
+import { fileTooLargeMessage, validateFile } from '../validators/fileValidator';
 import { dbService } from '../services/dbService';
 import { generateUniqueFileName, getUploadPath } from '../utils/fileUtils';
 import { queueHandler } from '../queues/queueHandler';
 import { createConcurrencyLimiter } from '../utils/concurrency';
+import type { UploadResult } from '../types';
 import { UPLOADS, RESUME_STATUS } from '../constants';
+import { getErrorMessage, getErrorStack } from '../utils/errors';
 
 const uploadsDir = config.upload.directory || UPLOADS.DEFAULT_DIR;
 fs.mkdir(uploadsDir, { recursive: true }).catch(err => {
@@ -20,6 +23,28 @@ fs.mkdir(uploadsDir, { recursive: true }).catch(err => {
 
 /** Limit concurrent uploads per process when UPLOAD_MAX_CONCURRENT is set; scale via replicas for more capacity */
 const uploadLimiter = createConcurrencyLimiter(config.upload.maxConcurrent ?? 0);
+
+/**
+ * Streams an upload to disk and reports whether it was stored.
+ *
+ * The multipart parser does not fail on a file over UPLOAD_MAX_SIZE: it stops reading at the limit and
+ * flags the stream as `truncated`. Such a file is incomplete and must be discarded, not stored (its size
+ * would sit exactly at the limit and pass validation).
+ */
+async function storeUpload(file: MultipartFile['file'], filePath: string): Promise<boolean> {
+  try {
+    await pipeline(file, createWriteStream(filePath));
+  } catch (error) {
+    await fs.unlink(filePath).catch(() => {});
+    throw error;
+  }
+
+  if (file.truncated) {
+    await fs.unlink(filePath).catch(() => {});
+    return false;
+  }
+  return true;
+}
 
 export async function uploadSingle(request: FastifyRequest, reply: FastifyReply) {
   await uploadLimiter.acquire();
@@ -31,13 +56,16 @@ export async function uploadSingle(request: FastifyRequest, reply: FastifyReply)
     }
 
     if (!config.upload.allowedTypes.includes(data.mimetype)) {
+      data.file.resume(); // discard the rejected file's bytes so the request can complete
       return reply.status(400).send({ error: `File type ${data.mimetype} not allowed` });
     }
 
     const uniqueName = generateUniqueFileName(data.filename);
     const filePath = getUploadPath(uniqueName);
 
-    await pipeline(data.file, createWriteStream(filePath));
+    if (!(await storeUpload(data.file, filePath))) {
+      return reply.status(413).send({ error: fileTooLargeMessage(config.upload.maxSize) });
+    }
     const stats = await fs.stat(filePath);
 
     const validation = await validateFile(filePath);
@@ -74,8 +102,8 @@ export async function uploadSingle(request: FastifyRequest, reply: FastifyReply)
       status: RESUME_STATUS.UPLOADED,
       message: 'Resume uploaded successfully and queued for processing',
     });
-  } catch (error: any) {
-    logger.error('Upload error', { error: error.message, stack: error.stack });
+  } catch (error) {
+    logger.error('Upload error', { error: getErrorMessage(error), stack: getErrorStack(error) });
     return reply.status(500).send({ error: 'Failed to upload resume' });
   } finally {
     uploadLimiter.release();
@@ -84,16 +112,18 @@ export async function uploadSingle(request: FastifyRequest, reply: FastifyReply)
 
 export async function uploadMultiple(request: FastifyRequest, reply: FastifyReply) {
   await uploadLimiter.acquire();
+  const results: UploadResult[] = [];
+  const files: Array<{ filename: string; mimetype: string; filePath: string }> = [];
   try {
     const parts = request.parts();
-    const results: Array<{ resumeId?: string; fileName: string; status: string; error?: string }> = [];
-    const files: Array<{ data: any; filename: string; mimetype: string; filePath: string }> = [];
 
     for await (const part of parts) {
       if (part.type === 'file') {
-        const data = part as any;
+        const data = part;
 
         if (!config.upload.allowedTypes.includes(data.mimetype)) {
+          // The parser only advances to the next part once this one is fully read.
+          data.file.resume();
           results.push({
             fileName: data.filename,
             status: RESUME_STATUS.FAILED,
@@ -104,9 +134,15 @@ export async function uploadMultiple(request: FastifyRequest, reply: FastifyRepl
 
         const uniqueName = `${uuidv4()}${path.extname(data.filename)}`;
         const filePath = path.join(uploadsDir, uniqueName);
-        await pipeline(data.file, createWriteStream(filePath));
+        if (!(await storeUpload(data.file, filePath))) {
+          results.push({
+            fileName: data.filename,
+            status: RESUME_STATUS.FAILED,
+            error: fileTooLargeMessage(config.upload.maxSize),
+          });
+          continue;
+        }
         files.push({
-          data,
           filename: data.filename,
           mimetype: data.mimetype,
           filePath,
@@ -115,7 +151,8 @@ export async function uploadMultiple(request: FastifyRequest, reply: FastifyRepl
     }
 
     if (files.length === 0) {
-      return reply.status(400).send({ error: 'No files uploaded' });
+      // Nothing was accepted; still say why each file was rejected.
+      return reply.status(400).send({ error: 'No files uploaded', results });
     }
 
     for (const file of files) {
@@ -160,16 +197,16 @@ export async function uploadMultiple(request: FastifyRequest, reply: FastifyRepl
           resumeId,
           fileName: file.filename,
         });
-      } catch (error: any) {
+      } catch (error) {
         logger.error('Error processing file', {
           fileName: file.filename,
-          error: error.message,
+          error: getErrorMessage(error),
         });
         await fs.unlink(file.filePath).catch(() => {});
         results.push({
           fileName: file.filename,
           status: RESUME_STATUS.FAILED,
-          error: error.message,
+          error: getErrorMessage(error),
         });
       }
     }
@@ -183,8 +220,10 @@ export async function uploadMultiple(request: FastifyRequest, reply: FastifyRepl
       failed: failCount,
       results,
     });
-  } catch (error: any) {
-    logger.error('Batch upload error', { error: error.message });
+  } catch (error) {
+    // Parsing aborted (client disconnect, parts limit...): don't leave stored-but-unrecorded files behind.
+    await Promise.all(files.map((file) => fs.unlink(file.filePath).catch(() => {})));
+    logger.error('Batch upload error', { error: getErrorMessage(error) });
     return reply.status(500).send({ error: 'Failed to process uploads' });
   } finally {
     uploadLimiter.release();
@@ -209,8 +248,8 @@ export async function getUploadStatus(
       fileName: resume.file_name,
       createdAt: resume.created_at,
     });
-  } catch (error: any) {
-    logger.error('Error fetching resume status', { error: error.message });
+  } catch (error) {
+    logger.error('Error fetching resume status', { error: getErrorMessage(error) });
     return reply.status(500).send({ error: 'Failed to fetch status' });
   }
 }
@@ -238,8 +277,8 @@ export async function deleteResume(
 
     logger.info('Resume deleted', { resumeId });
     return reply.send({ success: true, message: 'Resume deleted successfully' });
-  } catch (error: any) {
-    logger.error('Error deleting resume', { error: error.message });
+  } catch (error) {
+    logger.error('Error deleting resume', { error: getErrorMessage(error) });
     return reply.status(500).send({ error: 'Failed to delete resume' });
   }
 }
@@ -266,8 +305,8 @@ export async function getResumeFile(
     reply.header('Content-Disposition', `inline; filename="${resume.file_name}"`);
 
     return reply.send(createReadStream(resume.file_path));
-  } catch (error: any) {
-    logger.error('Error serving file', { error: error.message });
+  } catch (error) {
+    logger.error('Error serving file', { error: getErrorMessage(error) });
     return reply.status(500).send({ error: 'Failed to serve file' });
   }
 }
@@ -287,8 +326,8 @@ export async function queueMatcherJob(request: FastifyRequest, reply: FastifyRep
       message: 'Matcher job queued',
       resumeId,
     });
-  } catch (error: any) {
-    logger.error('Error queueing matcher job', { error: error.message });
+  } catch (error) {
+    logger.error('Error queueing matcher job', { error: getErrorMessage(error) });
     return reply.status(500).send({ error: 'Failed to queue matcher job' });
   }
 }

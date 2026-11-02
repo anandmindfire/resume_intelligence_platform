@@ -268,6 +268,20 @@ for w in ocr parser insights; do pip install -r apps/$w-worker-python/requiremen
 pnpm test:python
 ```
 
+### Lint and CI
+
+`pnpm lint` lints every workspace with ESLint (`eslint.config.mjs`) and **fails on any warning** (`--max-warnings 0`); `pnpm lint:fix` applies auto-fixes. Unused code should be deleted rather than silenced, and `catch` bindings are `unknown` (use `getErrorMessage` from each service's `utils/errors.ts`).
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `main` / `Development`:
+
+| Job      | What it does                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------- |
+| `node`   | On Node 18 (matches `.nvmrc` and the images) and 22: `pnpm lint`, `build`, `type-check`, `test:coverage` |
+| `python` | One job per worker on Python 3.11: `pytest` with coverage (fails under 90%)                              |
+| `docker` | After the above pass, builds every service image without pushing, to catch Dockerfile/lockfile breakage  |
+
+Coverage floors are enforced (Node: 90% lines/statements/functions, 85% branches in `vitest.config.mts`; Python: 90%). To reproduce CI locally: `pnpm install --frozen-lockfile && pnpm lint && pnpm build && pnpm type-check && pnpm test:coverage`.
+
 Known bugs are captured as expected failures (`it.fails` in Vitest, `xfail(strict=True)` in pytest) with a `BUG:` note; they start failing loudly once fixed, so the marker can be removed.
 
 ---

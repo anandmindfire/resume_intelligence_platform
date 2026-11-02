@@ -20,7 +20,7 @@ const JOBS = [
 function hookState(overrides: Partial<HookState> = {}): HookState {
   return {
     jobs: JOBS,
-    jobMatches: { J1: makeMatchDetail({ jobId: 'J1', matchScore: 0.9 }) },
+    jobMatches: { J1: makeMatchDetail({ jobId: 'J1', matchScore: 90 }) },
     loading: false,
     loadData: vi.fn(),
     loadJobMatches: vi.fn().mockResolvedValue(null),

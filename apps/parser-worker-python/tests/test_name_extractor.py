@@ -44,12 +44,6 @@ def test_all_caps_name_only_matched_via_title_case_rule():
     assert extract_name("JANE DOE\njane@x.com") == "JANE DOE"
 
 
-@pytest.mark.xfail(
-    reason="BUG: name_extractor.py:30-41 (strategy 2) only filters with _is_not_name, whose header list "
-    "lacks 'resume'/'curriculum vitae' (those are only in _is_valid_name), so a 'Curriculum Vitae' "
-    "title line is returned as the candidate's name.",
-    strict=True,
-)
 def test_document_title_is_not_returned_as_name():
     assert extract_name("Curriculum Vitae\nMaria Garcia Lopez\nmaria@x.com") == "Maria Garcia Lopez"
 
@@ -99,3 +93,8 @@ def test_is_likely_name_requires_word_count_case_and_letters():
     assert _is_likely_name("Jane Doe", 3, ["a", "b", "c", "Jane Doe"]) is False  # no context, not first
     assert _is_likely_name("Jane Doe", 3, ["a", "b", "c", "Jane Doe", "+1 555"]) is True
     assert _is_likely_name("Jane Doe", 0, ["Jane Doe"]) is True
+
+
+@pytest.mark.parametrize("title", ["Resume", "RESUME", "Curriculum Vitae", "Résumé", "CV"])
+def test_document_titles_are_skipped(title):
+    assert extract_name(f"{title}\nMaria Garcia Lopez\nmaria@x.com") == "Maria Garcia Lopez"

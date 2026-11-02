@@ -103,6 +103,17 @@ describe('QueueConsumer', () => {
     );
   });
 
+  it('logs non-Error rejections as strings without a stack', async () => {
+    const consumer = new QueueConsumer();
+    consumer.createWorker('matcher-queue', vi.fn().mockRejectedValue('plain string failure'));
+
+    await expect(workerInstances[0].processor(job)).rejects.toBe('plain string failure');
+    expect(logger.error).toHaveBeenCalledWith(
+      'Job 42 failed',
+      expect.objectContaining({ error: 'plain string failure', stack: undefined })
+    );
+  });
+
   it('registers completed and failed listeners', () => {
     const consumer = new QueueConsumer();
     consumer.createWorker('matcher-queue', vi.fn());

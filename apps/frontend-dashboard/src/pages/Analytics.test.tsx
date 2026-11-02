@@ -137,13 +137,13 @@ describe('Analytics page', () => {
   it('renders match rows with name fallbacks, score classes and skills', () => {
     renderWith({
       matches: [
-        makeRoleMatch({ name: 'Alice', match_score: 0.85, matched_skills: ['A', 'B', 'C', 'D', 'E'] }),
+        makeRoleMatch({ name: 'Alice', match_score: 85, matched_skills: ['A', 'B', 'C', 'D', 'E'] }),
         makeRoleMatch({ name: undefined, file_name: 'bob.pdf', match_score: 55, matched_skills: [] }),
         makeRoleMatch({
           role_title: '',
           name: undefined,
           file_name: undefined,
-          match_score: '0.2',
+          match_score: '20.00',
           matched_skills: undefined as unknown as string[],
         }),
       ],
@@ -167,11 +167,8 @@ describe('Analytics page', () => {
     expect(within(rows[2]).getByText(COPY.LABELS.NO_SKILLS_MATCHED)).toBeInTheDocument();
   });
 
-  // BUG: src/pages/Analytics.tsx:231 (score from :209) - the score is normalised once into `score`
-  // and then passed to formatMatchScore(), which normalises again. Any normalised score in
-  // (0, 1] (e.g. raw 0.01 => 1%) is multiplied by 100 a second time and shown as "100%".
-  it.fails('displays a 1% match as "1%"', () => {
-    renderWith({ matches: [makeRoleMatch({ match_score: 0.01 })] });
+  it('displays a sub-1% score without re-normalising it (0.8 => 1%)', () => {
+    renderWith({ matches: [makeRoleMatch({ match_score: 0.8 })] });
     const row = screen.getAllByRole('row')[1];
     expect(within(row).getByText('1%')).toBeInTheDocument();
   });

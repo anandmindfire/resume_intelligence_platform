@@ -185,11 +185,17 @@ describe('RoleMatcher.match', () => {
     expect(result.details.skillScore).toBe(46.67);
   });
 
-  it('can exceed 100 overall when the experience bonus applies', () => {
-    // Documents current behaviour: the overall score is not clamped, so a perfect
-    // skills/keywords match plus surplus experience yields more than 100.
+  it('caps the overall score at 100 even when the experience bonus applies', () => {
     const role = makeRole({ requiredExperience: 1 });
     const result = RoleMatcher.match(makeResume({ experience: years('5 years') }), role);
-    expect(result.matchScore).toBe(108);
+    expect(result.matchScore).toBe(100);
+    // The bonus is still visible in the detail score.
+    expect(result.details.experienceScore).toBe(120);
+  });
+
+  it('does not cap scores below 100', () => {
+    const role = makeRole({ requiredSkills: ['Go', 'Rust'] });
+    const result = RoleMatcher.match(makeResume({ skills: ['Go'] }), role);
+    expect(result.matchScore).toBeLessThan(100);
   });
 });

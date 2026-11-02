@@ -4,6 +4,8 @@ import { TextCleaner } from '../cleaners';
 import validator from 'email-validator';
 import { phone } from 'phone';
 
+type NlpDoc = ReturnType<typeof nlp>;
+
 export interface ExtractedResume {
   name?: string;
   email?: string;
@@ -30,6 +32,17 @@ export interface Education {
   graduationDate?: string;
 }
 
+/**
+ * A short line that starts with an education keyword, e.g. "Education", "ACADEMIC BACKGROUND:", "Qualifications".
+ * Deliberately not a substring match: "Stanford University" or "Degree: B.Sc." are content, not headings.
+ */
+const EDUCATION_HEADING = /^(education|academics?|academic\s+\w+|qualifications?)\b/i;
+const MAX_HEADING_LENGTH = 40;
+
+function isEducationHeading(line: string): boolean {
+  return line.length <= MAX_HEADING_LENGTH && EDUCATION_HEADING.test(line);
+}
+
 export class ResumeExtractor {
   static extract(text: string): ExtractedResume {
     const cleaned = TextCleaner.clean(text);
@@ -41,12 +54,12 @@ export class ResumeExtractor {
       phone: this.extractPhone(cleaned),
       skills: this.extractSkills(cleaned, doc),
       experience: this.extractExperience(cleaned),
-      education: this.extractEducation(cleaned, doc),
+      education: this.extractEducation(cleaned),
       rawText: cleaned,
     };
   }
 
-  private static extractName(text: string, doc: any): string | undefined {
+  private static extractName(text: string, doc: NlpDoc): string | undefined {
     // Try to find name at the beginning of the document
     const firstLine = text.split('\n')[0]?.trim();
     if (firstLine && firstLine.length < 50 && !firstLine.includes('@')) {
@@ -87,7 +100,7 @@ export class ResumeExtractor {
     return undefined;
   }
 
-  private static extractSkills(text: string, doc: any): string[] {
+  private static extractSkills(text: string, doc: NlpDoc): string[] {
     const skillKeywords = [
       'javascript', 'typescript', 'python', 'java', 'react', 'node', 'sql',
       'aws', 'docker', 'kubernetes', 'git', 'mongodb', 'postgresql',
@@ -175,7 +188,7 @@ export class ResumeExtractor {
     return experiences;
   }
 
-  private static extractEducation(text: string, doc: any): Education[] {
+  private static extractEducation(text: string): Education[] {
     const educations: Education[] = [];
     const lines = text.split('\n');
 
@@ -185,7 +198,7 @@ export class ResumeExtractor {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      if (/education|academic|university|college|degree/i.test(line)) {
+      if (isEducationHeading(line)) {
         inEducationSection = true;
         continue;
       }

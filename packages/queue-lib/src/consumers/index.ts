@@ -4,7 +4,7 @@ import { logger } from '@resume-platform/logger';
 import { QueueJobData } from '../producers';
 
 export interface ProcessorFunction {
-  (job: Job<QueueJobData>): Promise<any>;
+  (job: Job<QueueJobData>): Promise<unknown>;
 }
 
 export class QueueConsumer {
@@ -40,12 +40,12 @@ export class QueueConsumer {
             resumeId: job.data.resumeId,
           });
           return result;
-        } catch (error: any) {
+        } catch (error) {
           logger.error(`Job ${job.id} failed`, {
             jobId: job.id,
             resumeId: job.data.resumeId,
-            error: error.message,
-            stack: error.stack,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
           });
           throw error;
         }

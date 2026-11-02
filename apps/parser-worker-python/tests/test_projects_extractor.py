@@ -36,7 +36,7 @@ def test_project_with_inline_technologies_description_and_url():
 def test_numbered_projects_and_bare_www_url():
     text = "Projects\n1. Weather Bot\n2. Budget Tracker\nwww.example.com/budget"
     projects = extract_projects(text)
-    assert [p["title"] for p in projects] == ["1. Weather Bot", "2. Budget Tracker"]
+    assert [p["title"] for p in projects] == ["Weather Bot", "Budget Tracker"]
     assert projects[1]["url"] == "www.example.com/budget"
     assert projects[0]["url"] is None
 
@@ -60,22 +60,11 @@ def test_url_before_any_project_is_ignored():
     assert extract_projects("Projects\nhttps://github.com/me\n") == []
 
 
-@pytest.mark.xfail(
-    reason="BUG: projects_extractor.py:32-35 appends the current project when the next section starts, "
-    "and lines 89-90 append it again after the loop, so the last project is duplicated whenever "
-    "another section follows Projects.",
-    strict=True,
-)
 def test_last_project_not_duplicated_when_followed_by_section():
     text = "Projects\nResume Parser | Python\nbuilt a parsing pipeline for resumes\n\nEducation\nB.S."
     assert len(extract_projects(text)) == 1
 
 
-@pytest.mark.xfail(
-    reason="BUG: projects_extractor.py:113 treats any line starting with a capitalised word as a new "
-    "project title, so normal description/tech lines ('Built with: React, Node.js') start bogus projects.",
-    strict=True,
-)
 def test_capitalised_tech_line_belongs_to_current_project():
     projects = extract_projects("Projects\nChat App\nBuilt with: React, Node.js, Socket.io\n")
     assert len(projects) == 1
@@ -124,3 +113,19 @@ def test_ocr_bullet_artifact_lines_are_appended_to_description():
     text = "Projects\nChat App\ne realtime messaging for distributed teams\no supports offline sync and push\n"
     [proj] = extract_projects(text)
     assert proj["description"] == "realtime messaging for distributed teams supports offline sync and push"
+
+
+def test_bullet_prefix_is_stripped_from_titles():
+    text = "Projects\n1. Weather Bot | Python\n2) Budget Tracker\n- 3. Chat App, React\n"
+    assert [p["title"] for p in extract_projects(text)] == ["Weather Bot", "Budget Tracker", "Chat App"]
+
+
+def test_capitalised_sentence_is_description_not_new_project():
+    text = "Projects\nChat App\nA realtime messaging platform for teams\nBuilt a websocket gateway\n"
+    [proj] = extract_projects(text)
+    assert proj["description"] == "A realtime messaging platform for teams Built a websocket gateway"
+
+
+def test_month_date_range_does_not_capture_preceding_word():
+    [proj] = extract_projects("Projects\nChat App\nBuilt in Jan 2020 - Dec 2021\n")
+    assert proj["duration"] == "Jan 2020 - Dec 2021"

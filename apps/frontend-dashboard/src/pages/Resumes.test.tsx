@@ -99,13 +99,21 @@ describe('Resumes page', () => {
     expect(screen.getByText('0 resumes found')).toBeInTheDocument();
   });
 
-  // BUG: src/pages/Resumes.tsx:85 - `hasActiveFilters` checks every value in `filters`,
-  // including the always-present defaults page/limit/sortBy/sortOrder, so it is always true:
-  // the "Clear" button is always shown and the empty state never says "Upload resumes to get started".
-  it.fails('treats the default filters as "no active filters"', () => {
+  it('treats the default filters as "no active filters"', () => {
     renderWith({ resumes: [], total: 0 });
     expect(screen.getByText(COPY.EMPTY.UPLOAD_TO_START)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: COPY.LABELS.CLEAR })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['keyword', { keyword: 'x' }],
+    ['location', { location: 'NYC' }],
+    ['minScore', { minScore: 40 }],
+    ['roleId', { roleId: 'role-1' }],
+  ])('shows Clear and the no-results empty state when %s is set', (_name, extra) => {
+    renderWith({ resumes: [], total: 0, filters: { ...DEFAULT_FILTERS, ...extra } });
+    expect(screen.getByRole('button', { name: COPY.LABELS.CLEAR })).toBeInTheDocument();
+    expect(screen.queryByText(COPY.EMPTY.UPLOAD_TO_START)).not.toBeInTheDocument();
   });
 
   it('forwards keyword, location and minimum score changes to updateFilters', () => {
@@ -149,7 +157,7 @@ describe('Resumes page', () => {
     expect(state.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('clears filters, resets the role and refreshes after a short delay', () => {
+  it('clears filters and resets the role without a manual refresh', () => {
     vi.useFakeTimers();
     const { state } = renderWith({ filters: { ...DEFAULT_FILTERS, keyword: 'x' } });
     const roleSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
@@ -164,11 +172,11 @@ describe('Resumes page', () => {
       page: 1,
     });
     expect(roleSelect.value).toBe('');
-    expect(state.refresh).not.toHaveBeenCalled();
+    // The filter state change triggers the single fetch; no deferred refresh may fire.
     act(() => {
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(1000);
     });
-    expect(state.refresh).toHaveBeenCalledTimes(1);
+    expect(state.refresh).not.toHaveBeenCalled();
   });
 
   it('changes sort order', () => {

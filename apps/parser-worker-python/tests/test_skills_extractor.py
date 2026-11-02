@@ -12,7 +12,7 @@ def test_empty(text):
 def test_skills_section_with_known_skills():
     text = "Jane Doe\n\nSkills\nPython, Docker, Kubernetes\nAWS and PostgreSQL\n\nExperience\nUsed Java daily"
     skills = extract_skills(text)
-    assert {"Python", "Docker", "Kubernetes", "Aws", "Postgresql"} <= set(skills)
+    assert {"Python", "Docker", "Kubernetes", "AWS", "PostgreSQL"} <= set(skills)
     # outside the skills section -> not searched when a section exists
     assert "Java" not in skills
 
@@ -24,7 +24,7 @@ def test_free_text_is_searched_when_there_is_no_skills_section():
 
 def test_matching_uses_word_boundaries():
     # "javascript" must not also yield "java"; "goal" must not yield "go"
-    assert extract_skills("Strong javascript background, goal oriented") == ["Javascript"]
+    assert extract_skills("Strong javascript background, goal oriented") == ["JavaScript"]
 
 
 def test_labeled_list_adds_unknown_items():
@@ -57,33 +57,37 @@ def test_extract_skills_section_missing():
     assert _extract_skills_section("Jane\nExperience\nEngineer") == ""
 
 
-@pytest.mark.xfail(
-    reason="BUG: skills_extractor.py:53 wraps every skill in \\b...\\b; for skills ending in a non-word "
-    "char ('c++', 'c#') the trailing \\b can never match before a space/comma/EOL, so C++ and C# are "
-    "never detected from a skills section.",
-    strict=True,
-)
 def test_detects_cpp_and_csharp_in_skills_section():
     skills = extract_skills("Technical Skills\nC++, C#, Python\nExperience\nDeveloper")
     assert {"C++", "C#", "Python"} <= set(skills)
 
 
-@pytest.mark.xfail(
-    reason="BUG: skills_extractor.py:78 starts the 'skills section' at the FIRST line containing "
-    "'skills'/'technologies'/'tools' anywhere (e.g. a 'Technologies:' line inside Experience) and "
-    "stops at the next section header, so the real Skills section later in the resume is never searched.",
-    strict=True,
-)
 def test_real_skills_section_is_used_even_if_experience_mentions_technologies(sample_resume):
     text = sample_resume + "\nSkills\nDocker, Kubernetes, AWS, React\n"
     assert {"Docker", "Kubernetes", "React"} <= set(extract_skills(text))
 
 
-@pytest.mark.xfail(
-    reason="BUG: skills_extractor.py:62 splits labeled skill lists on '-' as well as ',', so hyphenated "
-    "skills are shredded: 'Skills: Scikit-Learn' yields bogus 'Scikit' and 'Learn' entries.",
-    strict=True,
-)
 def test_hyphenated_skill_is_not_split():
     skills = extract_skills("Skills: Python, Scikit-Learn")
     assert "Learn" not in skills and "Scikit" not in skills
+
+
+def test_known_skills_use_canonical_display_names():
+    skills = extract_skills("Skills\nNode.js, AWS, PostgreSQL, TensorFlow, CI/CD, GitHub Actions")
+    assert {"Node.js", "AWS", "PostgreSQL", "TensorFlow", "CI/CD", "GitHub Actions"} <= set(skills)
+    assert "Aws" not in skills and "Node.Js" not in skills
+
+
+def test_labeled_list_items_use_canonical_names_and_keep_hyphens():
+    skills = extract_skills("Skills: Scikit-Learn, Python - Figma")
+    assert {"Scikit-learn", "Python", "Figma"} <= set(skills)
+
+
+@pytest.mark.parametrize("line", ["Skills", "Technical Skills:", "Tools & Technologies", "Key Skills and Tools"])
+def test_skills_headings_are_recognised(line):
+    assert _extract_skills_section(f"{line}\nPython\nExperience\nx") == "python"
+
+
+@pytest.mark.parametrize("line", ["Technologies: Python, Go", "Used tools to ship things", "Experience", ""])
+def test_non_headings_are_not_skills_sections(line):
+    assert _extract_skills_section(f"{line}\nPython") == ""

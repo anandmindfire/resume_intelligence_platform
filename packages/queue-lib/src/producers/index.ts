@@ -7,24 +7,25 @@ export interface QueueJobData {
   filePath: string;
   fileName: string;
   mimeType: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class QueueProducer {
   private queues: Map<string, Queue> = new Map();
 
   private getQueue(queueName: string): Queue {
-    if (!this.queues.has(queueName)) {
-      const queue = new Queue(queueName, {
-        connection: {
-          host: config.queue.redis.host,
-          port: config.queue.redis.port,
-          password: config.queue.redis.password,
-        },
-      });
-      this.queues.set(queueName, queue);
-    }
-    return this.queues.get(queueName)!;
+    const existing = this.queues.get(queueName);
+    if (existing) return existing;
+
+    const queue = new Queue(queueName, {
+      connection: {
+        host: config.queue.redis.host,
+        port: config.queue.redis.port,
+        password: config.queue.redis.password,
+      },
+    });
+    this.queues.set(queueName, queue);
+    return queue;
   }
 
   async addJob(

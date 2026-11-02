@@ -1,4 +1,3 @@
-import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
 import { queueConsumer } from '@resume-platform/queue-lib';
 import { processMatchJob } from './processors/matchProcessor';
@@ -7,7 +6,7 @@ import { matcherQueueConfig } from './queues/queueConfig';
 const main = async () => {
   logger.info('Starting Matcher Worker');
 
-  const worker = queueConsumer.createWorker(
+  queueConsumer.createWorker(
     matcherQueueConfig.queueName,
     processMatchJob,
     {

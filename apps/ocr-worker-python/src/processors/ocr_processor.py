@@ -58,11 +58,13 @@ class OCRProcessor:
                     pdf_reader = PyPDF2.PdfReader(file)
                     text = ""
                     for page in pdf_reader.pages:
-                        text += page.extract_text() + "\n"
+                        text += (page.extract_text() or "") + "\n"
                     if text.strip():
                         return text.strip()
-            except:
-                pass
+            except ImportError:
+                logger.warning("PyPDF2 not installed, falling back to OCR for PDF")
+            except Exception as e:
+                logger.debug(f"Could not read PDF text layer, falling back to OCR: {e}")
             
             logger.info(f"PDF has no extractable text, using OCR: {file_path}")
             images = convert_from_path(file_path, dpi=OCR_DPI)

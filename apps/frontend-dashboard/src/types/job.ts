@@ -13,6 +13,7 @@ export interface Job {
 export interface MatchedResumeSummary {
   resumeId: string;
   resumeName: string;
+  /** Match score on a 0-100 scale */
   matchScore: number;
   skillsMatched: string[];
 }
@@ -21,6 +22,7 @@ export interface MatchedResumeSummary {
 export interface JobMatchDetail {
   jobId: string;
   jobTitle: string;
+  /** Overall match score on a 0-100 scale */
   matchScore: number;
   skillsMatched: string[];
   skillsMissing: string[];
@@ -36,6 +38,7 @@ export interface JobMatchDetail {
 export interface JobCardProps {
   job: Job;
   matchCount?: number;
+  /** Average match score on a 0-100 scale */
   avgMatchScore?: number;
   onClick: () => void;
 }

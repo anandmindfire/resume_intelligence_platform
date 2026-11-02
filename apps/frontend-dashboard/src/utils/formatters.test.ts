@@ -20,9 +20,7 @@ describe('formatDate', () => {
     expect(formatDate('2023-12-01')).toBe('Dec 1, 2023');
   });
 
-  // BUG: src/utils/formatters.ts:3-12 - `new Date('garbage').toLocaleDateString()` does not
-  // throw, it returns "Invalid Date", so the catch fallback (return the raw string) is unreachable.
-  it.fails('falls back to the raw string for unparseable dates', () => {
+  it('falls back to the raw string for unparseable dates', () => {
     expect(formatDate('not-a-date')).toBe('not-a-date');
   });
 });
@@ -51,22 +49,23 @@ describe('normalizeMatchScore', () => {
     expect(normalizeMatchScore(NaN)).toBe(0);
   });
 
-  it('scales unit-range scores (0, 1] to percentages', () => {
-    expect(normalizeMatchScore(0.75)).toBe(75);
-    expect(normalizeMatchScore(1)).toBe(100);
-    expect(normalizeMatchScore('0.5')).toBe(50);
-  });
-
-  it('keeps percentage-range scores as-is', () => {
+  it('keeps scores on the 0-100 scale as-is without rescaling fractions', () => {
     expect(normalizeMatchScore(0)).toBe(0);
+    expect(normalizeMatchScore(0.8)).toBe(0.8);
+    expect(normalizeMatchScore(1)).toBe(1);
     expect(normalizeMatchScore(42)).toBe(42);
     expect(normalizeMatchScore(100)).toBe(100);
-    expect(normalizeMatchScore('85')).toBe(85);
   });
 
-  it('treats scores above 100 as basis points', () => {
-    expect(normalizeMatchScore(7500)).toBe(75);
+  it('parses numeric strings', () => {
+    expect(normalizeMatchScore('85')).toBe(85);
+    expect(normalizeMatchScore('82.50')).toBe(82.5);
+  });
+
+  it('clamps out-of-range scores to [0, 100]', () => {
+    expect(normalizeMatchScore(7500)).toBe(100);
     expect(normalizeMatchScore('10000')).toBe(100);
+    expect(normalizeMatchScore(-5)).toBe(0);
   });
 });
 
@@ -77,10 +76,11 @@ describe('formatMatchScore', () => {
   });
 
   it('formats normalised scores as rounded percentages', () => {
-    expect(formatMatchScore(0.756)).toBe('76%');
+    expect(formatMatchScore(75.6)).toBe('76%');
     expect(formatMatchScore(64.4)).toBe('64%');
-    expect(formatMatchScore(9000)).toBe('90%');
-    expect(formatMatchScore('0.2')).toBe('20%');
+    expect(formatMatchScore('82.50')).toBe('83%');
+    expect(formatMatchScore(0.8)).toBe('1%');
+    expect(formatMatchScore(150)).toBe('100%');
     expect(formatMatchScore(0)).toBe('0%');
   });
 });

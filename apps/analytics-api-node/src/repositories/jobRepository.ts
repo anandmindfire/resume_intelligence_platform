@@ -33,7 +33,14 @@ export interface JobRole {
   updated_at?: string;
 }
 
-function mapJobRow(row: any): JobRole {
+/** A job_roles row as selected by the job queries: array columns are nullable in Postgres. */
+type JobRow = Omit<JobRole, 'requiredSkills' | 'preferredSkills' | 'keywords'> & {
+  requiredSkills: string[] | null;
+  preferredSkills: string[] | null;
+  keywords: string[] | null;
+};
+
+function mapJobRow(row: JobRow): JobRole {
   return {
     ...row,
     requiredSkills: row.requiredSkills || [],
@@ -46,7 +53,7 @@ export class JobRepository {
   async findAll(): Promise<JobRole[]> {
     const client = await pool.connect();
     try {
-      const result = await client.query(FIND_ALL_JOBS);
+      const result = await client.query<JobRow>(FIND_ALL_JOBS);
       return result.rows.map(mapJobRow);
     } finally {
       client.release();
@@ -56,7 +63,7 @@ export class JobRepository {
   async findById(id: string): Promise<JobRole | null> {
     const client = await pool.connect();
     try {
-      const result = await client.query(FIND_JOB_BY_ID, [id]);
+      const result = await client.query<JobRow>(FIND_JOB_BY_ID, [id]);
       if (result.rows.length === 0) return null;
       return mapJobRow(result.rows[0]);
     } finally {
@@ -67,7 +74,7 @@ export class JobRepository {
   async findByJobId(jobId: string): Promise<JobRole | null> {
     const client = await pool.connect();
     try {
-      const result = await client.query(FIND_JOB_BY_TITLE, [`%${jobId}%`]);
+      const result = await client.query<JobRow>(FIND_JOB_BY_TITLE, [`%${jobId}%`]);
       if (result.rows.length === 0) return null;
       return mapJobRow(result.rows[0]);
     } finally {
@@ -78,7 +85,7 @@ export class JobRepository {
   async create(job: Omit<JobRole, 'id' | 'created_at' | 'updated_at'>): Promise<JobRole> {
     const client = await pool.connect();
     try {
-      const result = await client.query(INSERT_JOB, [
+      const result = await client.query<JobRow>(INSERT_JOB, [
         job.title,
         job.requiredSkills || [],
         job.preferredSkills || [],
@@ -100,7 +107,7 @@ export class JobRepository {
       for (const job of jobs) {
         const existing = await client.query(SELECT_JOB_ID_BY_TITLE, [job.title]);
         if (existing.rows.length === 0) {
-          const result = await client.query(INSERT_JOB, [
+          const result = await client.query<JobRow>(INSERT_JOB, [
             job.title,
             job.requiredSkills || [],
             job.preferredSkills || [],
@@ -111,7 +118,7 @@ export class JobRepository {
           ]);
           createdJobs.push(mapJobRow(result.rows[0]));
         } else {
-          const fullJob = await client.query(FIND_JOB_BY_ID, [existing.rows[0].id]);
+          const fullJob = await client.query<JobRow>(FIND_JOB_BY_ID, [existing.rows[0].id]);
           if (fullJob.rows.length > 0) {
             createdJobs.push(mapJobRow(fullJob.rows[0]));
           }

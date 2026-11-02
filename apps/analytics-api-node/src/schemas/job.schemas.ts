@@ -9,8 +9,8 @@ const jobIdParams = {
   required: ['id'],
 } as const;
 
-/** Scores in job responses are the 0-100 match score multiplied by 100 and rounded (e.g. 82.5% -> 8250). */
-const SCORE_NOTE = 'Match score 0-100 multiplied by 100 and rounded (e.g. 82.5% is returned as 8250).';
+/** Same 0-100 scale as the match scores returned by /matches. */
+const SCORE_NOTE = 'Match score on a 0-100 scale, rounded to two decimals (e.g. 82.5).';
 
 export const getAllJobsSchema = {
   tags: ['Jobs'],
@@ -35,7 +35,7 @@ export const getJobsWithMatchesSchema = {
             type: 'object',
             properties: {
               matchCount: { type: 'integer', example: 14 },
-              avgMatchScore: { type: 'integer', description: SCORE_NOTE, example: 6421 },
+              avgMatchScore: { type: 'number', description: SCORE_NOTE, example: 64.21 },
             },
           },
         ],
@@ -74,7 +74,7 @@ export const getJobMatchesSchema = {
       properties: {
         jobId: { type: 'string', format: 'uuid' },
         jobTitle: { type: 'string' },
-        matchScore: { type: 'integer', description: `Average across matches. ${SCORE_NOTE}` },
+        matchScore: { type: 'number', description: `Average across matches. ${SCORE_NOTE}` },
         skillsMatched: { type: 'array', items: { type: 'string' }, description: 'Union of skills matched by any resume' },
         skillsMissing: { type: 'array', items: { type: 'string' }, description: 'Union of required skills missing from any resume' },
         experienceMatch: { type: 'boolean', description: 'At least one resume meets the experience requirement' },
@@ -88,7 +88,7 @@ export const getJobMatchesSchema = {
             properties: {
               resumeId: { type: 'string', format: 'uuid' },
               resumeName: { type: 'string', description: 'Candidate name, else file name, else "Unknown"' },
-              matchScore: { type: 'integer', description: SCORE_NOTE },
+              matchScore: { type: 'number', description: SCORE_NOTE },
               skillsMatched: { type: 'array', items: { type: 'string' } },
             },
           },

@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
 import { config } from '@resume-platform/config';
-import { logger } from '@resume-platform/logger';
 import type { ResumeRecord } from '../types';
 import { DB_POOL } from '../constants';
 import {

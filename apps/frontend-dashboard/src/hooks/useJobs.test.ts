@@ -118,7 +118,7 @@ describe('useJobs', () => {
 
     it('fetches and caches details for an uncached job', async () => {
       const { result } = await renderLoaded();
-      const fresh = makeMatchDetail({ jobId: 'J2', matchScore: 0.5 });
+      const fresh = makeMatchDetail({ jobId: 'J2', matchScore: 50 });
       jobs.getJobMatches.mockResolvedValueOnce(fresh);
       let detail: unknown;
       await act(async () => {

@@ -25,6 +25,7 @@ export interface EducationStats {
 export interface RoleMatchSummary {
   role_title: string;
   match_count: number;
+  /** Average match score on a 0-100 scale */
   avg_score: number;
 }
 
@@ -46,6 +47,7 @@ export interface RoleMatch {
   name?: string;
   resume_name?: string;
   file_name?: string;
+  /** Match score on a 0-100 scale (may arrive as a numeric string, e.g. "82.50") */
   match_score: number | string;
   matched_skills: string[];
 }

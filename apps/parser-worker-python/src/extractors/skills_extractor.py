@@ -32,6 +32,33 @@ TECHNICAL_SKILLS = [
     'agile', 'scrum', 'kanban', 'tdd', 'bdd', 'devops', 'sre',
 ]
 
+# Display names for skills whose canonical casing differs from str.title()
+CANONICAL_NAMES = {
+    'javascript': 'JavaScript', 'typescript': 'TypeScript', 'php': 'PHP', 'matlab': 'MATLAB',
+    'r': 'R', 'node.js': 'Node.js', 'next.js': 'Next.js', 'nuxt.js': 'Nuxt.js',
+    'html': 'HTML', 'css': 'CSS', 'scss': 'SCSS', 'jquery': 'jQuery',
+    'sql': 'SQL', 'postgresql': 'PostgreSQL', 'mysql': 'MySQL', 'mongodb': 'MongoDB',
+    'fastapi': 'FastAPI', 'asp.net': 'ASP.NET', 'aws': 'AWS', 'gcp': 'GCP',
+    'github': 'GitHub', 'gitlab': 'GitLab', 'ci/cd': 'CI/CD', 'github actions': 'GitHub Actions',
+    'gitlab ci': 'GitLab CI', 'ai': 'AI', 'tensorflow': 'TensorFlow', 'pytorch': 'PyTorch',
+    'scikit-learn': 'Scikit-learn', 'numpy': 'NumPy', 'ios': 'iOS', 'rest api': 'REST API',
+    'graphql': 'GraphQL', 'grpc': 'gRPC', 'websocket': 'WebSocket', 'tdd': 'TDD', 'bdd': 'BDD',
+    'devops': 'DevOps', 'sre': 'SRE',
+}
+
+# Words allowed in a skills section heading (e.g. "Technical Skills", "Tools & Technologies")
+_SKILLS_HEADING_KEYWORDS = {'skills', 'technologies', 'tools'}
+_SKILLS_HEADING_WORDS = _SKILLS_HEADING_KEYWORDS | {
+    'technical', 'key', 'core', 'relevant', 'additional', 'professional', 'it', 'and', '&', '/',
+    'programming', 'languages', 'frameworks',
+}
+
+
+def _display_name(skill: str) -> str:
+    """Canonical display name for a (lowercase) skill"""
+    return CANONICAL_NAMES.get(skill.lower(), skill.title())
+
+
 def extract_skills(text: str) -> List[str]:
     """Extract skills from resume text"""
     if not text:
@@ -49,21 +76,21 @@ def extract_skills(text: str) -> List[str]:
     
     # Match against known skills
     for skill in TECHNICAL_SKILLS:
-        # Use word boundaries for better matching
-        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
+        # Word boundaries via lookarounds: \b fails for skills ending in a symbol (c++, c#)
+        pattern = r'(?<!\w)' + re.escape(skill.lower()) + r'(?!\w)'
         if re.search(pattern, text_to_search):
-            found_skills.add(skill.title())
+            found_skills.add(_display_name(skill))
     
     # Also look for skills listed with separators
     skills_list_pattern = r'(?:skills?|technologies?|tools?)[:]\s*([^\n]+)'
     matches = re.findall(skills_list_pattern, lower_text, re.IGNORECASE)
     for match in matches:
-        # Split by common separators
-        items = re.split(r'[,;|•\-\n]', match)
+        # Split by common separators (but not on hyphens inside words, e.g. Scikit-Learn)
+        items = re.split(r'[,;|•\n]|\s+[-–]\s+', match)
         for item in items:
             item = item.strip()
             if item and len(item) > 2:
-                found_skills.add(item.title())
+                found_skills.add(_display_name(item))
     
     return sorted(list(found_skills))
 
@@ -75,7 +102,7 @@ def _extract_skills_section(text: str) -> str:
     
     for line in lines:
         line_lower = line.lower()
-        if 'skills' in line_lower or 'technologies' in line_lower or 'tools' in line_lower:
+        if not in_skills_section and _is_skills_heading(line_lower):
             in_skills_section = True
             continue
         
@@ -86,3 +113,12 @@ def _extract_skills_section(text: str) -> str:
             skills_lines.append(line)
     
     return '\n'.join(skills_lines).lower()
+
+
+def _is_skills_heading(line_lower: str) -> bool:
+    """True if the line is a skills section heading, not prose or an inline list"""
+    words = re.findall(r'[a-z]+|&|/', line_lower.strip().rstrip(':'))
+    if ':' in line_lower.strip().rstrip(':') or not words:
+        return False
+    return (any(w in _SKILLS_HEADING_KEYWORDS for w in words)
+            and all(w in _SKILLS_HEADING_WORDS for w in words))

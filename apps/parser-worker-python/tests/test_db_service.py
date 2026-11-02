@@ -179,12 +179,6 @@ def test_update_resume_status_when_getconn_fails(pg):
     pg.pool.putconn.assert_not_called()
 
 
-@pytest.mark.xfail(
-    reason="BUG: db_service.py:98-100 / 120-122 call cursor.close() in `finally` whenever conn is set; "
-    "if conn.cursor() itself raises, `cursor` is unbound so an UnboundLocalError masks the real DB "
-    "error and the connection is never returned to the pool (pool leak).",
-    strict=True,
-)
 @pytest.mark.parametrize("call", [
     lambda svc: svc.save_parsed_data("r1", PARSED),
     lambda svc: svc.update_resume_status("r1", "parsed"),

@@ -56,7 +56,8 @@ export const uploadSingleSchema = {
       },
       required: ['resumeId', 'fileName', 'status', 'message'],
     },
-    400: { description: 'No file, disallowed file type, or file too large', ...errorResponse },
+    400: { description: 'No file, or a disallowed file type', ...errorResponse },
+    413: { description: 'File exceeds the maximum upload size', ...errorResponse },
     500: { description: 'Storage, database or queue failure', ...errorResponse },
   },
 };
@@ -65,8 +66,8 @@ export const uploadMultipleSchema = {
   tags: ['Upload'],
   summary: 'Upload multiple resumes',
   description:
-    'Stores every file in the multipart body. Each file is validated independently; rejected files are reported ' +
-    `in \`results\` without failing the whole request. ${ALLOWED_TYPES_NOTE}`,
+    'Stores every file in the multipart body. Each file is validated independently; rejected files (disallowed ' +
+    `type or over the size limit) are reported in \`results\` without failing the whole request. ${ALLOWED_TYPES_NOTE}`,
   consumes: ['multipart/form-data'],
   body: {
     type: 'object',
@@ -91,7 +92,15 @@ export const uploadMultipleSchema = {
       },
       required: ['total', 'success', 'failed', 'results'],
     },
-    400: { description: 'No acceptable files in the request', ...errorResponse },
+    400: {
+      description: 'No acceptable files in the request; `results` lists why each file was rejected',
+      type: 'object',
+      properties: {
+        error: { type: 'string', example: 'No files uploaded' },
+        results: { type: 'array', items: uploadResult },
+      },
+      required: ['error'],
+    },
     500: { description: 'Unexpected failure reading the multipart stream', ...errorResponse },
   },
 };

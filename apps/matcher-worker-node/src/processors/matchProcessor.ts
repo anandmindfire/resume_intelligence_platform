@@ -5,6 +5,7 @@ import { ExtractedResume } from '@resume-platform/resume-nlp';
 import { logger } from '@resume-platform/logger';
 import { dbService } from '../services/dbService';
 import { queueHandler } from '../queues/queueHandler';
+import { getErrorMessage, getErrorStack } from '../utils/errors';
 
 export async function processMatchJob(job: Job<QueueJobData>) {
   const { resumeId } = job.data;
@@ -55,10 +56,10 @@ export async function processMatchJob(job: Job<QueueJobData>) {
       matches,
       status: 'completed',
     };
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Match failed for resume ${resumeId}`, {
-      error: error.message,
-      stack: error.stack,
+      error: getErrorMessage(error),
+      stack: getErrorStack(error),
     });
     throw error;
   }

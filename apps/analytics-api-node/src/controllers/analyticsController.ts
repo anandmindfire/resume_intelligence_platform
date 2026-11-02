@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { getErrorMessage } from '../utils/errors';
 import { analyticsService } from '../services/analyticsService';
 import {
   validateLimit,
@@ -12,8 +13,8 @@ export async function getDashboard(request: FastifyRequest, reply: FastifyReply)
   try {
     const summary = await analyticsService.getDashboardSummary();
     return summary;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -25,8 +26,8 @@ export async function getTopSkills(
     const limit = validateLimit(request.query.limit, 10, 100);
     const skills = await analyticsService.getTopSkills(limit);
     return skills;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -34,8 +35,8 @@ export async function getExperienceStats(request: FastifyRequest, reply: Fastify
   try {
     const stats = await analyticsService.getExperienceStats();
     return stats;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -43,8 +44,8 @@ export async function getEducationStats(request: FastifyRequest, reply: FastifyR
   try {
     const stats = await analyticsService.getEducationStats();
     return stats;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -61,8 +62,8 @@ export async function getRoleMatches(
     const limit = validateLimit(request.query.limit, 10, 100);
     const result = await analyticsService.getRoleMatches(roleId, minScore, { page, limit });
     return result;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -94,8 +95,8 @@ export async function getResumes(
     const sortOrder = validateSortOrder(request.query.sortOrder);
     const result = await analyticsService.getResumes(filters, { page, limit, sortBy, sortOrder });
     return result;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -112,8 +113,8 @@ export async function getResumeById(
     }
 
     return resume;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -129,7 +130,7 @@ export async function exportResumesCsv(
     const { resumeIds } = request.body || {};
     const exportResult = await analyticsService.exportResumesToCSV(resumeIds);
     return exportResult;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }

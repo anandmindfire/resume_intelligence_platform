@@ -59,4 +59,5 @@ export function exportResumesToCSV(resumes: Resume[], filename: string = 'resume
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
