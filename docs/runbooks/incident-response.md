@@ -31,14 +31,27 @@ docker service ps resume-platform_<service-name> --no-trunc
 docker service logs resume-platform_<service-name> --tail=100
 ```
 
-### 1.4 Common causes
+### 1.4 Check service status (Kubernetes)
+
+```bash
+# Check all pods, status, and restarts:
+kubectl get pods -n resume-platform -o wide
+
+# Check recent events on an unhealthy pod:
+kubectl describe pod <pod-name> -n resume-platform
+
+# Check pod logs:
+kubectl logs <pod-name> -n resume-platform --tail=100
+```
+
+### 1.5 Common causes
 
 - **Postgres or Redis down** → APIs and workers that depend on them will fail. Start infra first, then apps. See [Database / Redis issues](#2-database-or-redis-issues).
 - **Port conflict** → Another process using the same port. Change port in Compose/Swarm or stop the conflicting process (e.g. `lsof -i :3000`).
-- **Out of memory / OOM** → Check `docker stats`. Scale workers or increase memory; for upload-service, consider lowering `UPLOAD_MAX_CONCURRENT` or adding replicas.
-- **Config / env** → Missing or wrong `POSTGRES_*`, `REDIS_*`, or service URLs (e.g. `UPLOAD_SERVICE_URL`, `ANALYTICS_API_URL` in gateway). Verify `.env` and stack env.
+- **Out of memory / OOM** → Check `docker stats` or `kubectl top pods -n resume-platform`. Scale workers or increase memory; for upload-service, consider lowering `UPLOAD_MAX_CONCURRENT` or adding replicas.
+- **Config / env** → Missing or wrong `POSTGRES_*`, `REDIS_*`, or service URLs (e.g. `UPLOAD_SERVICE_URL`, `ANALYTICS_API_URL` in gateway). Verify `.env`, `platform-config`, or Helm values.
 
-### 1.5 Restarting a service
+### 1.6 Restarting or Rolling Back a service
 
 **Compose:**
 
@@ -50,6 +63,19 @@ docker-compose -f infra/docker-compose/docker-compose.microservices.yml restart 
 
 ```bash
 docker service update --force resume-platform_<service-name>
+```
+
+**Kubernetes:**
+
+```bash
+# Graceful rolling restart of a deployment:
+kubectl rollout restart deployment/<deployment-name> -n resume-platform
+
+# Rollback a failed deployment release:
+kubectl rollout undo deployment/<deployment-name> -n resume-platform
+
+# Or rollback the entire Helm release:
+helm rollback resume-platform -n resume-platform
 ```
 
 Restart dependencies if needed (e.g. restart workers after Redis is back).
@@ -107,7 +133,20 @@ docker service ps resume-platform_ocr-worker resume-platform_parser-worker resum
 docker service logs resume-platform_parser-worker --tail=200
 ```
 
-Restart workers if they exited or are stuck: `docker-compose restart ocr-worker parser-worker` or `docker service update --force resume-platform_ocr-worker resume-platform_parser-worker`.
+**Kubernetes:**
+
+```bash
+# Check worker status and logs:
+kubectl get pods -n resume-platform -l app.kubernetes.io/component=worker
+kubectl logs -l app.kubernetes.io/name=ocr-worker -n resume-platform --tail=200 -f
+
+# Emergency scale workers under high backlog:
+kubectl scale deployment ocr-worker --replicas=8 -n resume-platform
+kubectl scale deployment parser-worker --replicas=8 -n resume-platform
+kubectl scale deployment matcher-worker --replicas=6 -n resume-platform
+```
+
+Restart workers if they exited or are stuck: `docker-compose restart ocr-worker parser-worker`, `docker service update --force resume-platform_ocr-worker`, or `kubectl rollout restart deployment/ocr-worker -n resume-platform`.
 
 ### 3.3 Check Redis queue length (Redis lists)
 

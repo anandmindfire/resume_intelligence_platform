@@ -20,9 +20,11 @@ Default load ramps to **100 VUs**. To handle that load with high success:
 Swarm runs multiple replicas with one published port; the routing mesh load-balances.
 
 1. **Start the stack with Swarm** (upload-service=3, api-gateway=2, analytics-api=2):
+
    ```bash
    pnpm run swarm:start:build
    ```
+
    Or redeploy without rebuilding: `pnpm run swarm:start`
 
 2. **Run the load test:**
@@ -30,9 +32,21 @@ Swarm runs multiple replicas with one published port; the routing mesh load-bala
    pnpm run load-test
    ```
 
-**Option B – Docker Compose (scaled)**  
-1. Start: `pnpm run docker:start:scale:build` (or `pnpm run docker:start:scale` after first build).  
+**Option B – Docker Compose (scaled)**
+
+1. Start: `pnpm run docker:start:scale:build` (or `pnpm run docker:start:scale` after first build).
 2. Run: `pnpm run load-test`
+
+**Option C – Kubernetes (HPA & Ingress Load Balancing)**  
+When running against Kubernetes, k6 can target the Ingress or Edge Load Balancer directly while watching HPA dynamically scale replicas:
+
+```bash
+# 1. Target the K8s Ingress or Edge Proxy URL:
+BASE_URL=http://localhost:3000 pnpm run load-test
+
+# 2. In a separate terminal, watch HPA autoscaling in real time:
+kubectl get hpa -w -n resume-platform
+```
 
 Light load: `pnpm run load-test:smoke`. Stress (same 100 VU): `pnpm run load-test:stress`.
 
@@ -45,6 +59,7 @@ BASE_URL=http://localhost:3000 pnpm exec k6 run load-testing/k6/upload-capacity.
 ```
 
 From the summary:
+
 - **http_reqs** → requests per second (RPS) at peak
 - **http_req_duration p(95)** → latency; if this exceeds threshold, add replicas or tune `UPLOAD_MAX_CONCURRENT`
 - **http_req_failed** → error rate; keep &lt; 5–10%
@@ -57,11 +72,11 @@ BASE_URL=http://localhost:3000 FILES_PER_REQUEST=5 pnpm exec k6 run load-testing
 
 ## Interpreting Results
 
-| Metric | Use |
-|--------|-----|
-| **RPS at target p95** | Sustainable throughput (e.g. 50 RPS at p95 &lt; 3s). |
-| **Error rate** | Keep &lt; 5%; if higher, reduce load or add replicas. |
-| **p95 latency** | If &gt; 5s, scale replicas or increase `UPLOAD_MAX_CONCURRENT` per replica. |
+| Metric                | Use                                                                         |
+| --------------------- | --------------------------------------------------------------------------- |
+| **RPS at target p95** | Sustainable throughput (e.g. 50 RPS at p95 &lt; 3s).                        |
+| **Error rate**        | Keep &lt; 5%; if higher, reduce load or add replicas.                       |
+| **p95 latency**       | If &gt; 5s, scale replicas or increase `UPLOAD_MAX_CONCURRENT` per replica. |
 
 **429 Too Many Requests:** The API gateway rate-limits by IP. The default is 10000 requests per 15 minutes so load tests don't hit 429. If you see 429, set `RATE_LIMIT_MAX=100000` (or higher) when starting the gateway, or restart the stack with that env.
 
@@ -99,9 +114,9 @@ docker service ls
 
 Env vars (see `.env.swarm` and `infra/swarm/stack.yml`):
 
-| Variable | Meaning | Suggested |
-|----------|---------|-----------|
-| `DB_POOL_MAX` | Max DB connections per upload-service replica | 20 |
+| Variable                | Meaning                                           | Suggested      |
+| ----------------------- | ------------------------------------------------- | -------------- |
+| `DB_POOL_MAX`           | Max DB connections per upload-service replica     | 20             |
 | `UPLOAD_MAX_CONCURRENT` | Max concurrent uploads per replica (0 = no limit) | 50 under burst |
 
 Set before deploy or override in stack env. More replicas = more total capacity; `UPLOAD_MAX_CONCURRENT` caps concurrency per process to avoid OOM under burst.
