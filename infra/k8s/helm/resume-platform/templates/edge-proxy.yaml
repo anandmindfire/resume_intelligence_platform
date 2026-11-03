@@ -1,0 +1,216 @@
+{{- if .Values.edgeProxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "resume-platform.fullname" . }}-edge-proxy-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: edge-proxy
+    {{- include "resume-platform.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    events {
+        worker_connections 4096;
+        multi_accept on;
+        use epoll;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        log_format main_json escape=json '{'
+            '"time_local":"$time_local",'
+            '"remote_addr":"$remote_addr",'
+            '"request_method":"$request_method",'
+            '"request_uri":"$request_uri",'
+            '"status":$status,'
+            '"body_bytes_sent":$body_bytes_sent,'
+            '"request_time":$request_time,'
+            '"upstream_response_time":"$upstream_response_time",'
+            '"upstream_connect_time":"$upstream_connect_time",'
+            '"upstream_addr":"$upstream_addr",'
+            '"upstream_status":"$upstream_status",'
+            '"request_id":"$request_id"'
+        '}';
+
+        access_log /var/log/nginx/access.log main_json;
+        error_log /var/log/nginx/error.log warn;
+
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss application/atom+xml image/svg+xml;
+
+        upstream api_gateway_pool {
+            least_conn;
+            server api-gateway.{{ .Values.namespace.name }}.svc.cluster.local:3000 max_fails=3 fail_timeout=10s;
+            keepalive 32;
+        }
+
+        upstream frontend_pool {
+            least_conn;
+            server frontend-dashboard.{{ .Values.namespace.name }}.svc.cluster.local:80 max_fails=3 fail_timeout=10s;
+            keepalive 32;
+        }
+
+        server {
+            listen 80;
+            server_name _;
+
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+
+            client_max_body_size 50M;
+            client_body_buffer_size 128k;
+
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+
+            location = /healthz {
+                access_log off;
+                return 200 '{"status":"healthy","load_balancer":"edge-nginx"}';
+                add_header Content-Type application/json;
+            }
+
+            location /api {
+                proxy_pass http://api_gateway_pool;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host $host;
+                proxy_set_header X-Forwarded-Port $server_port;
+                proxy_set_header X-Request-ID $request_id;
+                proxy_next_upstream error timeout http_502 http_503 http_504;
+                proxy_next_upstream_tries 3;
+            }
+
+            location / {
+                proxy_pass http://frontend_pool;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Request-ID $request_id;
+                proxy_next_upstream error timeout http_502 http_503 http_504;
+                proxy_next_upstream_tries 3;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-proxy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: edge-proxy
+    app.kubernetes.io/component: load-balancer
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.edgeProxy.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edge-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edge-proxy
+        app.kubernetes.io/component: load-balancer
+        {{- include "resume-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - edge-proxy
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: edge-proxy
+          image: "{{ .Values.edgeProxy.image.repository }}:{{ .Values.edgeProxy.image.tag }}"
+          imagePullPolicy: {{ .Values.edgeProxy.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.edgeProxy.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: {{ include "resume-platform.fullname" . }}-edge-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-proxy-lb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: edge-proxy
+    app.kubernetes.io/component: load-balancer
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.edgeProxy.service.type }}
+  ports:
+    - name: http
+      port: {{ default 80 .Values.edgeProxy.service.port }}
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: edge-proxy
+{{- end }}
+

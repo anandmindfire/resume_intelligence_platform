@@ -50,16 +50,16 @@ _More screenshots: [docs/screenshots](docs/screenshots/README.md)_
 
 ## Tech Stack
 
-| Layer      | Technology                                    |
-| ---------- | --------------------------------------------- |
-| Frontend   | React, TypeScript, Vite, Tailwind, ApexCharts |
-| API        | Node.js, TypeScript, Fastify                  |
-| Queue      | BullMQ (Redis)                                |
-| OCR        | Tesseract (Python)                            |
-| Parser/NLP | Python (SpaCy) / Node.js                      |
-| Database   | PostgreSQL                                    |
-| Monorepo   | Turborepo, pnpm                               |
-| Deployment | Docker, Docker Compose, Docker Swarm          |
+| Layer      | Technology                                                          |
+| ---------- | ------------------------------------------------------------------- |
+| Frontend   | React, TypeScript, Vite, Tailwind, ApexCharts                       |
+| API        | Node.js, TypeScript, Fastify                                        |
+| Queue      | BullMQ (Redis)                                                      |
+| OCR        | Tesseract (Python)                                                  |
+| Parser/NLP | Python (SpaCy) / Node.js                                            |
+| Database   | PostgreSQL                                                          |
+| Monorepo   | Turborepo, pnpm                                                     |
+| Deployment | Docker, Docker Compose, Docker Swarm, Kubernetes (Helm & Kustomize) |
 
 ---
 
@@ -100,6 +100,7 @@ resume-intelligence-platform/
 │   ├── resume-nlp/               # NLP utilities (Node)
 │   └── role-matching/            # Matching/scoring logic
 ├── infra/                        # Infrastructure config (see infra/README.md)
+│   ├── k8s/                      # Kubernetes manifests, Helm chart, Ingress & LB
 │   ├── docker-compose/           # Compose files (dev, prod, microservices)
 │   ├── swarm/                    # Docker Swarm stack
 │   ├── ansible/                  # Server provisioning

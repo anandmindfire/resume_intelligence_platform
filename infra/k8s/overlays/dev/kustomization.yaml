@@ -1,0 +1,127 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: resume-platform
+
+resources:
+  - ../../base
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: api-gateway
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: upload-service
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: analytics-api
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend-dashboard
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ocr-worker
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: parser-worker
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: matcher-worker
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: insights-worker
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: export-worker
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: edge-proxy
+        namespace: resume-platform
+      spec:
+        replicas: 1
+  - patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: uploads-data-pvc
+        namespace: resume-platform
+      spec:
+        accessModes:
+          - ReadWriteOnce
+  - patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: exports-data-pvc
+        namespace: resume-platform
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+images:
+  - name: api-gateway-node
+    newTag: latest
+  - name: upload-service-node
+    newTag: latest
+  - name: analytics-api-node
+    newTag: latest
+  - name: frontend-dashboard
+    newTag: latest
+  - name: ocr-worker-python
+    newTag: latest
+  - name: parser-worker-python
+    newTag: latest
+  - name: matcher-worker-node
+    newTag: latest
+  - name: insights-worker-python
+    newTag: latest
+  - name: export-worker-node
+    newTag: latest

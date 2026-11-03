@@ -4,20 +4,21 @@ Infrastructure configuration for the Resume Intelligence Platform.
 
 ## Structure
 
-| Path | Purpose |
-|------|---------|
-| `ansible/` | Ansible playbooks for server provisioning and deployment |
-| `backup/` | Backup configuration and scripts (Postgres, Redis) |
-| `docker/` | Docker Compose for monitoring, logging, and observability |
-| `docker-compose/` | App Compose files (dev, prod, microservices, scale) |
-| `swarm/` | Docker Swarm stack for production deployment |
-| `health-checks/` | Health check script for all platform services |
-| `logging/` | Loki and Promtail configs for log aggregation |
-| `monitoring/` | Prometheus, Grafana, Alertmanager configs |
-| `nginx/` | Nginx reverse proxy config (optional, for production) |
-| `postgres/` | PostgreSQL init script and migrations |
-| `redis/` | Redis server configuration |
-| `ssl/` | SSL certificate generation scripts |
+| Path              | Purpose                                                                       |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `ansible/`        | Ansible playbooks for server provisioning and deployment                      |
+| `backup/`         | Backup configuration and scripts (Postgres, Redis)                            |
+| `docker/`         | Docker Compose for monitoring, logging, and observability                     |
+| `docker-compose/` | App Compose files (dev, prod, microservices, scale)                           |
+| `k8s/`            | Production Kubernetes architecture (Base, Overlays, Ingress, HPA, Helm Chart) |
+| `swarm/`          | Docker Swarm stack for production deployment                                  |
+| `health-checks/`  | Health check script for all platform services                                 |
+| `logging/`        | Loki and Promtail configs for log aggregation                                 |
+| `monitoring/`     | Prometheus, Grafana, Alertmanager configs                                     |
+| `nginx/`          | Nginx reverse proxy config (optional, for production)                         |
+| `postgres/`       | PostgreSQL init script and migrations                                         |
+| `redis/`          | Redis server configuration                                                    |
+| `ssl/`            | SSL certificate generation scripts                                            |
 
 ## Quick Start
 
@@ -66,6 +67,7 @@ pnpm infra:ssl:generate
 ## Docker Compose (App)
 
 App Compose files in `docker-compose/`:
+
 - **docker-compose.microservices.yml** — full stack (default)
 - **docker-compose.dev.yml** — Postgres + Redis only (local dev)
 - **docker-compose.prod.yml** — Swarm-style prod layout
@@ -75,6 +77,25 @@ App Compose files in `docker-compose/`:
 pnpm docker:microservices   # full stack
 pnpm docker:dev            # dev (Postgres + Redis only)
 ```
+
+## Kubernetes & Production Load Balancing
+
+Production-ready Kubernetes setup with ingress routing, least-connection load balancing, and Horizontal Pod Autoscaling (HPA) in `k8s/`:
+
+```bash
+# Deploy with Helm (dev or prod profile)
+pnpm helm:install:dev
+pnpm helm:install:prod
+
+# Or deploy with kubectl kustomize
+pnpm k8s:start:dev
+pnpm k8s:start:prod
+
+# Check status
+pnpm k8s:status
+```
+
+See `k8s/README.md` for full documentation on architecture, ingress, storage classes, and production readiness.
 
 ## Docker Swarm
 

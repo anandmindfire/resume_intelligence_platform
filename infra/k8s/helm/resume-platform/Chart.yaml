@@ -1,0 +1,14 @@
+apiVersion: v2
+name: resume-platform
+description: Production-ready Helm chart for Resume Intelligence Platform with advanced load balancing and autoscaling
+type: application
+version: 1.0.0
+appVersion: '1.0.0'
+keywords:
+  - resume
+  - microservices
+  - ocr
+  - nlp
+  - analytics
+maintainers:
+  - name: Platform Team

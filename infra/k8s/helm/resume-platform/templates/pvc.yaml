@@ -1,0 +1,76 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: postgres
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.postgres.persistence.accessMode }}
+  {{- if .Values.postgres.persistence.storageClass }}
+  storageClassName: {{ .Values.postgres.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.persistence.size }}
+---
+{{- end }}
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: redis
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.redis.persistence.accessMode }}
+  {{- if .Values.redis.persistence.storageClass }}
+  storageClassName: {{ .Values.redis.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+---
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-data-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: uploads-storage
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.storage.uploads.accessMode }}
+  {{- if .Values.storage.uploads.storageClass }}
+  storageClassName: {{ .Values.storage.uploads.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.uploads.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: exports-data-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: exports-storage
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.storage.exports.accessMode }}
+  {{- if .Values.storage.exports.storageClass }}
+  storageClassName: {{ .Values.storage.exports.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.exports.size }}
+

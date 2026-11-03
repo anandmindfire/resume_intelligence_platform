@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: resume-platform
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  # Storage
+  - storage/postgres-pvc.yaml
+  - storage/redis-pvc.yaml
+  - storage/uploads-pvc.yaml
+  - storage/exports-pvc.yaml
+  # Database & Cache
+  - database/postgres-configmap.yaml
+  - database/postgres-statefulset.yaml
+  - database/postgres-service.yaml
+  - database/db-init-job.yaml
+  - redis/redis-configmap.yaml
+  - redis/redis-statefulset.yaml
+  - redis/redis-service.yaml
+  # Applications
+  - apps/api-gateway/deployment.yaml
+  - apps/api-gateway/service.yaml
+  - apps/upload-service/deployment.yaml
+  - apps/upload-service/service.yaml
+  - apps/analytics-api/deployment.yaml
+  - apps/analytics-api/service.yaml
+  - apps/frontend/deployment.yaml
+  - apps/frontend/service.yaml
+  # Background Workers
+  - workers/ocr-worker/deployment.yaml
+  - workers/parser-worker/deployment.yaml
+  - workers/matcher-worker/deployment.yaml
+  - workers/insights-worker/deployment.yaml
+  - workers/export-worker/deployment.yaml
+  # Ingress & Edge Load Balancing
+  - ingress/ingress.yaml
+  - ingress/edge-proxy.yaml
+  # Autoscaling
+  - autoscaling/api-gateway-hpa.yaml
+  - autoscaling/upload-service-hpa.yaml
+  - autoscaling/analytics-api-hpa.yaml
+  - autoscaling/frontend-hpa.yaml
+  - autoscaling/workers-hpa.yaml
+  # Pod Disruption Budgets & Security
+  - pdb/pod-disruption-budgets.yaml
+  - network-policies/network-policies.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: resume-intelligence-platform

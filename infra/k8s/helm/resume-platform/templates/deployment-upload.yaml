@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: upload-service
+    app.kubernetes.io/component: upload
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.uploadService.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: upload-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: upload-service
+        app.kubernetes.io/component: upload
+        {{- include "resume-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - upload-service
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: upload-service
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.uploadService.image.repository }}:{{ .Values.uploadService.image.tag }}"
+          imagePullPolicy: {{ .Values.uploadService.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "resume-platform.fullname" . }}-config
+            - secretRef:
+                name: {{ include "resume-platform.fullname" . }}-secrets
+          resources:
+            {{- toYaml .Values.uploadService.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: uploads-data
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads-data
+          persistentVolumeClaim:
+            claimName: uploads-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upload-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: upload-service
+    app.kubernetes.io/component: upload
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: upload-service
+
