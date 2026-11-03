@@ -6,7 +6,11 @@ import type { QueueJobData } from '@resume-platform/queue-lib';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../services/dbService', () => ({ dbService: { getResumesForExport: vi.fn() } }));
-vi.mock('@resume-platform/logger', () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { parseExportJobData, processExportJob } from './exportProcessor';
 import { dbService } from '../services/dbService';
@@ -15,7 +19,9 @@ const getResumes = vi.mocked(dbService.getResumesForExport);
 const root = path.join(os.tmpdir(), `export-processor-${process.pid}-${Date.now()}`);
 
 const makeJob = (data: Partial<QueueJobData>) =>
-  ({ data: { resumeId: '', filePath: '', fileName: '', mimeType: '', ...data } }) as Job<QueueJobData>;
+  ({
+    data: { resumeId: '', filePath: '', fileName: '', mimeType: '', ...data },
+  }) as Job<QueueJobData>;
 
 const record = {
   id: 'r1',
@@ -45,8 +51,12 @@ describe('processExportJob', () => {
     expect(getResumes).toHaveBeenCalledWith(['r1']);
 
     const lines = (await fs.readFile(outputPath, 'utf8')).trim().split('\n');
-    expect(lines[0]).toBe('ID,File Name,Name,Email,Phone,Skills,Experience Count,Education Count,Status,Created At');
-    expect(lines[1]).toBe('r1,jane.pdf,"Jane, Doe",jane@example.com,+1555,go; sql,2,1,matched,2026-01-01');
+    expect(lines[0]).toBe(
+      'ID,File Name,Name,Email,Phone,Skills,Experience Count,Education Count,Status,Created At'
+    );
+    expect(lines[1]).toBe(
+      'r1,jane.pdf,"Jane, Doe",jane@example.com,+1555,go; sql,2,1,matched,2026-01-01'
+    );
   });
 
   it('exports every resume when no ids are given', async () => {
@@ -62,12 +72,16 @@ describe('processExportJob', () => {
 
   it('propagates database failures so the job is retried', async () => {
     getResumes.mockRejectedValueOnce(new Error('db down'));
-    await expect(processExportJob(makeJob({ outputPath: path.join(root, 'x.csv') }))).rejects.toThrow('db down');
+    await expect(
+      processExportJob(makeJob({ outputPath: path.join(root, 'x.csv') }))
+    ).rejects.toThrow('db down');
   });
 
   it('rejects a job without a usable outputPath before touching the database', async () => {
     await expect(processExportJob(makeJob({}))).rejects.toThrow('missing a valid outputPath');
-    await expect(processExportJob(makeJob({ outputPath: '' }))).rejects.toThrow('missing a valid outputPath');
+    await expect(processExportJob(makeJob({ outputPath: '' }))).rejects.toThrow(
+      'missing a valid outputPath'
+    );
     expect(getResumes).not.toHaveBeenCalled();
   });
 });
@@ -76,7 +90,10 @@ describe('parseExportJobData', () => {
   const base = { resumeId: '', filePath: '', fileName: '', mimeType: '' };
 
   it('accepts an output path with or without resume ids', () => {
-    expect(parseExportJobData({ ...base, outputPath: '/x.csv' })).toEqual({ outputPath: '/x.csv', resumeIds: undefined });
+    expect(parseExportJobData({ ...base, outputPath: '/x.csv' })).toEqual({
+      outputPath: '/x.csv',
+      resumeIds: undefined,
+    });
     expect(parseExportJobData({ ...base, outputPath: '/x.csv', resumeIds: ['a', 'b'] })).toEqual({
       outputPath: '/x.csv',
       resumeIds: ['a', 'b'],

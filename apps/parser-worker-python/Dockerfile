@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/release
 
 # Copy source code
 COPY apps/parser-worker-python/src ./src
+COPY shared-python/services/logger.py ./src/services/logger.py
 
 WORKDIR /app/src
 

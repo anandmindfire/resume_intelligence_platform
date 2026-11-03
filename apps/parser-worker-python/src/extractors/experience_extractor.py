@@ -2,7 +2,7 @@
 import re
 from typing import List, Dict, Any, Optional
 
-_MONTH = r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?'
+from utils.text_utils import MONTH_NAMES_PATTERN as _MONTH
 
 
 def _is_ocr_bullet(line: str) -> bool:

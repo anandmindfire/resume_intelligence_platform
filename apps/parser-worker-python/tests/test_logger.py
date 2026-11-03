@@ -18,9 +18,12 @@ def test_logger_produces_json(capsys):
 
 
 def test_worker_logger_module_is_importable_standalone():
+    """services.logger resolves from the single shared copy (see /shared-python/README.md),
+    merged into the services namespace package alongside this worker's own services/*.py."""
     module = importlib.import_module("services.logger")
     assert callable(module.get_logger)
-    assert module.__file__.startswith(str(Path(__file__).resolve().parents[1] / "src"))
+    shared_dir = Path(__file__).resolve().parents[3] / "shared-python" / "services"
+    assert Path(module.__file__).resolve() == shared_dir / "logger.py"
 
 
 def test_context_dict_reaches_json_output():

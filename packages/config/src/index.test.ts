@@ -29,6 +29,8 @@ const ENV_KEYS = [
   'ANALYTICS_API_PORT',
   'ANALYTICS_API_URL',
   'API_DOCS_ENABLED',
+  'TRUST_PROXY',
+  'CORS_ORIGINS',
   'JWT_SECRET',
   'JWT_EXPIRES_IN',
   'OCR_WORKER_CONCURRENCY',
@@ -95,6 +97,11 @@ describe('config', () => {
     expect(config.uploadService).toEqual({ port: 3001, url: 'http://localhost:3001' });
     expect(config.analyticsApi).toEqual({ port: 3002, url: 'http://localhost:3002' });
     expect(config.apiDocs).toEqual({ enabled: true });
+    expect(config.http).toEqual({
+      trustProxy: false,
+      corsOrigins: true,
+      corsOriginsIsDefault: true,
+    });
     expect(config.jwt).toEqual({ secret: 'your-secret-key', expiresIn: '24h' });
     expect(config.ocr).toEqual({ concurrency: 3, tesseractLang: 'eng' });
     expect(config.parser.concurrency).toBe(3);
@@ -146,7 +153,11 @@ describe('config', () => {
   });
 
   it('falls back to the general Redis settings for the queue connection', async () => {
-    const config = await loadConfig({ REDIS_HOST: 'cache', REDIS_PORT: '7000', REDIS_PASSWORD: 'pw' });
+    const config = await loadConfig({
+      REDIS_HOST: 'cache',
+      REDIS_PORT: '7000',
+      REDIS_PASSWORD: 'pw',
+    });
     expect(config.queue.redis).toEqual({ host: 'cache', port: 7000, password: 'pw' });
   });
 
@@ -169,5 +180,74 @@ describe('config', () => {
     vi.resetModules();
     const mod = await import('./index');
     expect(mod.default).toBe(mod.config);
+  });
+});
+
+/** Gives a describe block a clean, restored process.env (same isolation as the main config suite). */
+function isolateEnv() {
+  let saved: NodeJS.ProcessEnv;
+  beforeEach(() => {
+    saved = { ...process.env };
+    for (const key of ENV_KEYS) delete process.env[key];
+  });
+  afterEach(() => {
+    process.env = saved;
+  });
+}
+
+describe('parseTrustProxy', () => {
+  isolateEnv();
+
+  it.each([
+    [undefined, false],
+    ['', false],
+    ['  ', false],
+    ['false', false],
+    ['FALSE', false],
+    ['true', true],
+    ['True', true],
+    ['1', 1],
+    ['2', 2],
+    ['10.0.0.1', ['10.0.0.1']],
+    ['10.0.0.0/8, 172.16.0.0/12 ,loopback', ['10.0.0.0/8', '172.16.0.0/12', 'loopback']],
+  ])('parses %j as %j', async (input, expected) => {
+    vi.resetModules();
+    const { parseTrustProxy } = await import('./index');
+    expect(parseTrustProxy(input)).toEqual(expected);
+  });
+
+  it('is wired into config.http.trustProxy', async () => {
+    const config = await loadConfig({ TRUST_PROXY: '1' });
+    expect(config.http.trustProxy).toBe(1);
+  });
+});
+
+describe('parseCorsOrigins', () => {
+  isolateEnv();
+
+  it.each([
+    [undefined, true],
+    ['', true],
+    ['true', true],
+    ['false', false],
+    ['https://app.example.com', ['https://app.example.com']],
+    [
+      'https://a.example.com, https://b.example.com',
+      ['https://a.example.com', 'https://b.example.com'],
+    ],
+  ])('parses %j as %j', async (input, expected) => {
+    vi.resetModules();
+    const { parseCorsOrigins } = await import('./index');
+    expect(parseCorsOrigins(input)).toEqual(expected);
+  });
+
+  it('flags the permissive default so services can warn about it in production', async () => {
+    expect((await loadConfig()).http.corsOriginsIsDefault).toBe(true);
+    const explicit = await loadConfig({ CORS_ORIGINS: 'https://app.example.com' });
+    expect(explicit.http).toEqual({
+      trustProxy: false,
+      corsOrigins: ['https://app.example.com'],
+      corsOriginsIsDefault: false,
+    });
   });
 });

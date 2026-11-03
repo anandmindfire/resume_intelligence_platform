@@ -37,7 +37,7 @@ export interface PaginationProps {
   showPageSize?: boolean;
 }
 
-export type StatCardVariant = 'primary' | 'secondary' | 'amber' | 'purple' | 'blue';
+export type StatCardVariant = 'primary' | 'secondary' | 'warning' | 'accent' | 'info';
 
 export interface StatCardProps {
   title: string;

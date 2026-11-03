@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '@resume-platform/logger';
 import { analyticsService } from '../services/analyticsService';
 import {
   validateLimit,

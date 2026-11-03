@@ -1,12 +1,28 @@
 import Chart from 'react-apexcharts';
 import type { Mock } from 'vitest';
 
+/**
+ * Narrow structural shape of the subset of ApexOptions our charts configure and
+ * our tests assert on. `ApexOptions` itself marks everything optional, which would
+ * force non-null assertions/optional chaining at every call site in tests; this
+ * mirrors only what the stubbed Chart actually receives in practice.
+ */
+export interface CapturedChartOptions {
+  chart: { type: string };
+  labels: string[];
+  colors: string[];
+  legend: { position: string };
+  dataLabels: { formatter: (val: number) => string };
+  tooltip: { y: { formatter: (val: number) => string } };
+  xaxis: { categories: unknown[] };
+  yaxis: { labels: { formatter: (val: number) => string } };
+}
+
 export interface CapturedChartProps {
   type: string;
   height: number | string;
   series: unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options: any;
+  options: CapturedChartOptions;
 }
 
 /** Returns the props passed to the most recent render of the stubbed Chart. */

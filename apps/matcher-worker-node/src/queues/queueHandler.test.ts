@@ -8,10 +8,15 @@ const { MockRedis, rpush, quit } = vi.hoisted(() => {
 });
 
 vi.mock('ioredis', () => ({ default: MockRedis }));
-vi.mock('@resume-platform/logger', () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
+import { INSIGHTS_ACTIONS } from '../constants';
 import { queueHandler } from './queueHandler';
 
 // The client is created once at module load; capture its options before mocks are cleared.
@@ -39,7 +44,11 @@ describe('matcher QueueHandler', () => {
 
     expect(rpush).toHaveBeenCalledWith(
       'insights-queue',
-      JSON.stringify({ resumeId: 'r-1', timestamp: '2026-05-06T07:08:09.000Z', action: 'UPDATE_INSIGHTS' })
+      JSON.stringify({
+        resumeId: 'r-1',
+        timestamp: '2026-05-06T07:08:09.000Z',
+        action: INSIGHTS_ACTIONS.UPDATE_INSIGHTS,
+      })
     );
   });
 
@@ -47,7 +56,10 @@ describe('matcher QueueHandler', () => {
     rpush.mockRejectedValueOnce(new Error('redis down'));
 
     await expect(queueHandler.triggerInsightsAggregation('r-1')).resolves.toBeUndefined();
-    expect(logger.error).toHaveBeenCalledWith('Failed to queue insights job', { error: 'redis down', resumeId: 'r-1' });
+    expect(logger.error).toHaveBeenCalledWith('Failed to queue insights job', {
+      error: 'redis down',
+      resumeId: 'r-1',
+    });
   });
 
   it('close quits the Redis client', async () => {

@@ -33,15 +33,18 @@ export const Analytics: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-center">
-        <div className="bg-red-50 p-4 rounded-full">
-          <AlertTriangle className="w-12 h-12 text-red-500" />
+      <div
+        className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-center"
+        role="alert"
+      >
+        <div className="bg-danger-50 p-4 rounded-full">
+          <AlertTriangle className="w-12 h-12 text-danger-500" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-800">{COPY.ERRORS.SOMETHING_WRONG}</h2>
-        <p className="text-gray-600">{error}</p>
+        <h2 className="text-2xl font-bold text-neutral-800">{COPY.ERRORS.SOMETHING_WRONG}</h2>
+        <p className="text-neutral-600">{error}</p>
         <button
           onClick={loadAnalytics}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="px-4 py-2 bg-info-600 text-white rounded-lg hover:bg-info-700 transition"
         >
           {COPY.LABELS.RETRY}
         </button>
@@ -55,12 +58,14 @@ export const Analytics: React.FC = () => {
         <h1 className="text-5xl font-bold font-display text-white mb-3 drop-shadow-lg">
           {COPY.PAGES.ANALYTICS.TITLE}
         </h1>
-        <p className="text-white/90 text-xl font-medium">
-          {COPY.PAGES.ANALYTICS.SUBTITLE}
-        </p>
+        <p className="text-white/90 text-xl font-medium">{COPY.PAGES.ANALYTICS.SUBTITLE}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+        aria-live="polite"
+        aria-busy={loading}
+      >
         {loading ? (
           <>
             <StatCardSkeleton />
@@ -69,40 +74,38 @@ export const Analytics: React.FC = () => {
             <StatCardSkeleton />
           </>
         ) : (
-        <>
-        <StatCard
-          title={COPY.STATS.AVG_EXPERIENCE}
-          value={
-            experience?.avg_years != null
-              ? `${Number(experience.avg_years).toFixed(1)}`
-              : '-'
-          }
-          label={COPY.STATS.YEARS_EXPERIENCE}
-          icon={TrendingUp}
-          variant="blue"
-        />
-        <StatCard
-          title={COPY.STATS.TOP_SKILLS}
-          value={skills.length}
-          label={COPY.STATS.UNIQUE_SKILLS}
-          icon={Award}
-          variant="amber"
-        />
-        <StatCard
-          title={COPY.STATS.UNIVERSITIES}
-          value={education.length}
-          label={COPY.STATS.UNIQUE_INSTITUTIONS}
-          icon={GraduationCap}
-          variant="purple"
-        />
-        <StatCard
-          title={COPY.STATS.ROLE_MATCHES}
-          value={formatNumber(matchesTotal)}
-          label={COPY.STATS.TOTAL_MATCHES}
-          icon={Target}
-          variant="secondary"
-        />
-        </>
+          <>
+            <StatCard
+              title={COPY.STATS.AVG_EXPERIENCE}
+              value={
+                experience?.avg_years != null ? `${Number(experience.avg_years).toFixed(1)}` : '-'
+              }
+              label={COPY.STATS.YEARS_EXPERIENCE}
+              icon={TrendingUp}
+              variant="info"
+            />
+            <StatCard
+              title={COPY.STATS.TOP_SKILLS}
+              value={skills.length}
+              label={COPY.STATS.UNIQUE_SKILLS}
+              icon={Award}
+              variant="warning"
+            />
+            <StatCard
+              title={COPY.STATS.UNIVERSITIES}
+              value={education.length}
+              label={COPY.STATS.UNIQUE_INSTITUTIONS}
+              icon={GraduationCap}
+              variant="accent"
+            />
+            <StatCard
+              title={COPY.STATS.ROLE_MATCHES}
+              value={formatNumber(matchesTotal)}
+              label={COPY.STATS.TOTAL_MATCHES}
+              icon={Target}
+              variant="secondary"
+            />
+          </>
         )}
       </div>
 
@@ -116,7 +119,15 @@ export const Analytics: React.FC = () => {
           {loading ? (
             <ChartSkeleton height={260} />
           ) : skills?.length > 0 ? (
-            <SkillsPieChart data={skills} limit={10} />
+            <>
+              <p className="sr-only">
+                {`Pie chart of the top ${Math.min(skills.length, 10)} skills by resume count: ${skills
+                  .slice(0, 10)
+                  .map((s) => `${s.skill} (${s.count})`)
+                  .join(', ')}.`}
+              </p>
+              <SkillsPieChart data={skills} limit={10} />
+            </>
           ) : (
             <EmptyState icon="📊" title={COPY.EMPTY.NO_SKILLS} />
           )}
@@ -131,14 +142,23 @@ export const Analytics: React.FC = () => {
           {loading ? (
             <ChartSkeleton height={260} />
           ) : education?.length > 0 ? (
-            <EducationBarChart data={education} />
+            <>
+              <p className="sr-only">
+                {`Bar chart of the top ${Math.min(education.length, 10)} universities by resume count: ${education
+                  .slice(0, 10)
+                  .map((e) => `${e.institution} (${e.count})`)
+                  .join(', ')}.`}
+              </p>
+              <EducationBarChart data={education} />
+            </>
           ) : (
             <EmptyState icon="🎓" title={COPY.EMPTY.NO_EDUCATION} />
           )}
         </Card>
       </div>
 
-      {!loading && experience &&
+      {!loading &&
+        experience &&
         (Number(experience.max_years) > 0 || Number(experience.avg_years) > 0) && (
           <Card
             title={COPY.CHARTS.EXPERIENCE_STATS}
@@ -146,6 +166,9 @@ export const Analytics: React.FC = () => {
             className="animate-slide-up"
             style={{ animationDelay: '600ms' }}
           >
+            <p className="sr-only">
+              {`Bar chart of experience statistics: average ${Number(experience.avg_years).toFixed(1)} years, minimum ${Number(experience.min_years).toFixed(1)} years, maximum ${Number(experience.max_years).toFixed(1)} years.`}
+            </p>
             <ExperienceChart data={experience} />
           </Card>
         )}
@@ -158,11 +181,15 @@ export const Analytics: React.FC = () => {
       >
         <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="analytics-role-filter"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               {COPY.LABELS.FILTER_BY_ROLE}
             </label>
             <select
-              className="input max-w-xs w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              id="analytics-role-filter"
+              className="input max-w-xs w-full border-neutral-300 rounded-md focus:ring-info-500 focus:border-info-500"
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
             >
@@ -175,10 +202,14 @@ export const Analytics: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="analytics-min-score"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               {COPY.LABELS.MIN_MATCH_SCORE}
             </label>
             <input
+              id="analytics-min-score"
               type="number"
               className="input max-w-xs w-full"
               min={0}
@@ -194,10 +225,10 @@ export const Analytics: React.FC = () => {
           <TableSkeleton variant="matches" rowCount={8} />
         ) : matches.length > 0 ? (
           <>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200">
               <table className="table w-full">
                 <thead>
-                  <tr className="bg-gray-50">
+                  <tr className="bg-neutral-50">
                     <th className="px-4 py-3 text-left">{COPY.LABELS.ROLE}</th>
                     <th className="px-4 py-3 text-left">{COPY.LABELS.RESUME}</th>
                     <th className="px-4 py-3 text-left">{COPY.LABELS.MATCH_SCORE}</th>
@@ -205,59 +236,56 @@ export const Analytics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                {matches.map((match, index) => {
-                  const score = normalizeMatchScore(match.match_score);
-                  const scoreClass =
-                    score >= 70
-                      ? 'match-score-high'
-                      : score >= 50
-                        ? 'match-score-medium'
-                        : 'match-score-low';
-                  return (
-                    <tr
-                      key={index}
-                      className="border-t hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3 font-semibold text-gray-800">
-                        {match.role_title || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 font-medium">
-                        {match.name || match.file_name || 'Unknown Candidate'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`match-score ${scoreClass} px-2 py-1 rounded text-sm font-bold`}
-                        >
-                          {formatMatchScore(match.match_score)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {(match.matched_skills || []).slice(0, 3).map((skill, idx) => (
-                            <span
-                              key={idx}
-                              className="skill-tag text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {(match.matched_skills || []).length > 3 && (
-                            <span className="skill-tag text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded opacity-70">
-                              +{(match.matched_skills || []).length - 3}
-                            </span>
-                          )}
-                          {(!match.matched_skills || match.matched_skills.length === 0) && (
-                            <span className="text-gray-400 text-xs italic">
-                              {COPY.LABELS.NO_SKILLS_MATCHED}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  {matches.map((match, index) => {
+                    const score = normalizeMatchScore(match.match_score);
+                    const scoreClass =
+                      score >= 70
+                        ? 'match-score-high'
+                        : score >= 50
+                          ? 'match-score-medium'
+                          : 'match-score-low';
+                    return (
+                      <tr key={index} className="border-t hover:bg-neutral-50 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-neutral-800">
+                          {match.role_title || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600 font-medium">
+                          {match.name || match.file_name || 'Unknown Candidate'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`match-score ${scoreClass} px-2 py-1 rounded text-sm font-bold`}
+                          >
+                            {formatMatchScore(match.match_score)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(match.matched_skills || []).slice(0, 3).map((skill, idx) => (
+                              <span
+                                key={idx}
+                                className="skill-tag text-xs bg-info-100 text-info-800 px-2 py-1 rounded"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                            {(match.matched_skills || []).length > 3 && (
+                              <span className="skill-tag text-xs bg-neutral-100 text-neutral-600 px-2 py-1 rounded opacity-70">
+                                +{(match.matched_skills || []).length - 3}
+                              </span>
+                            )}
+                            {(!match.matched_skills || match.matched_skills.length === 0) && (
+                              <span className="text-neutral-400 text-xs italic">
+                                {COPY.LABELS.NO_SKILLS_MATCHED}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
             {matchesTotalPages > 1 && (
               <Pagination
@@ -277,9 +305,7 @@ export const Analytics: React.FC = () => {
             icon="🎯"
             title={COPY.EMPTY.NO_ROLE_MATCHES}
             message={
-              selectedRole
-                ? COPY.EMPTY.NO_ROLE_MATCHES_FILTER
-                : COPY.EMPTY.NO_ROLE_MATCHES_YET
+              selectedRole ? COPY.EMPTY.NO_ROLE_MATCHES_FILTER : COPY.EMPTY.NO_ROLE_MATCHES_YET
             }
           />
         )}

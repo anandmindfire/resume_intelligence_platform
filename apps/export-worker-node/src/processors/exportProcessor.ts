@@ -1,11 +1,10 @@
 import { Job } from 'bullmq';
 import { QueueJobData } from '@resume-platform/queue-lib';
-import { logger } from '@resume-platform/logger';
+import { logger, getErrorMessage, getErrorStack } from '@resume-platform/logger';
 import { createObjectCsvWriter } from 'csv-writer';
 import { dbService } from '../services/dbService';
 import { ensureDirectoryExists } from '../utils/fileUtils';
 import { ExportJobData, ExportResult } from '../types';
-import { getErrorMessage, getErrorStack } from '../utils/errors';
 import { CSV_EXPORT_HEADERS, EXPORT_STATUS } from '../constants';
 
 /** Queue payloads are untyped at runtime, so check the fields this worker depends on. */
@@ -15,7 +14,10 @@ export function parseExportJobData(data: QueueJobData): ExportJobData {
   if (typeof outputPath !== 'string' || outputPath.length === 0) {
     throw new Error('Export job is missing a valid outputPath');
   }
-  if (resumeIds !== undefined && !(Array.isArray(resumeIds) && resumeIds.every((id) => typeof id === 'string'))) {
+  if (
+    resumeIds !== undefined &&
+    !(Array.isArray(resumeIds) && resumeIds.every((id) => typeof id === 'string'))
+  ) {
     throw new Error('Export job resumeIds must be an array of strings');
   }
 

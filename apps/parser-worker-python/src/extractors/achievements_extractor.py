@@ -2,6 +2,8 @@
 import re
 from typing import List, Dict, Any
 
+from utils.text_utils import strip_bullet
+
 def extract_achievements(text: str) -> List[Dict[str, Any]]:
     """Extract achievements, awards, and certifications"""
     if not text:
@@ -39,7 +41,7 @@ def extract_achievements(text: str) -> List[Dict[str, Any]]:
             if _is_achievement_entry(line_stripped):
                 if current_achievement:
                     achievements.append(current_achievement)
-                title = _strip_bullet(line_stripped)
+                title = strip_bullet(line_stripped)
                 current_achievement = {
                     'title': title,
                     'description': '',
@@ -91,11 +93,6 @@ def _is_achievement_entry(line: str) -> bool:
             return True
     
     return False
-
-def _strip_bullet(line: str) -> str:
-    """Remove a leading bullet / list number ("- ", "1. ", "2) ")"""
-    return re.sub(r'^(?:[•\-\*\+]|\d+[\.\)])\s+', '', line).strip() or line
-
 
 def _classify_achievement_type(line: str) -> str:
     """Classify the type of achievement"""

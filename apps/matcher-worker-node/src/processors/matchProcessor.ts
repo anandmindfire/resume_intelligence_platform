@@ -2,10 +2,10 @@ import { Job } from 'bullmq';
 import { QueueJobData } from '@resume-platform/queue-lib';
 import { RoleMatcher } from '@resume-platform/role-matching';
 import { ExtractedResume } from '@resume-platform/resume-nlp';
-import { logger } from '@resume-platform/logger';
+import { logger, getErrorMessage, getErrorStack } from '@resume-platform/logger';
 import { dbService } from '../services/dbService';
 import { queueHandler } from '../queues/queueHandler';
-import { getErrorMessage, getErrorStack } from '../utils/errors';
+import { RESUME_STATUS } from '../constants';
 
 export async function processMatchJob(job: Job<QueueJobData>) {
   const { resumeId } = job.data;
@@ -23,7 +23,7 @@ export async function processMatchJob(job: Job<QueueJobData>) {
     const roles = await dbService.getJobRoles();
 
     // Match against each role
-    const matches = roles.map(role => {
+    const matches = roles.map((role) => {
       const extractedResume: ExtractedResume = {
         name: resume.name,
         email: resume.email,
@@ -41,7 +41,7 @@ export async function processMatchJob(job: Job<QueueJobData>) {
     await dbService.saveMatches(resumeId, matches);
 
     // Update resume status
-    await dbService.updateResumeStatus(resumeId, 'matched');
+    await dbService.updateResumeStatus(resumeId, RESUME_STATUS.MATCHED);
 
     // Trigger insights aggregation
     await queueHandler.triggerInsightsAggregation(resumeId);

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { MockQueue, queueInstances } = vi.hoisted(() => {
-  const queueInstances: Array<{ name: string; opts: unknown; add: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
+  const queueInstances: Array<{
+    name: string;
+    opts: unknown;
+    add: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+  }> = [];
   const MockQueue = vi.fn().mockImplementation((name: string, opts: unknown) => {
     const instance = {
       name,
@@ -18,6 +23,8 @@ const { MockQueue, queueInstances } = vi.hoisted(() => {
 vi.mock('bullmq', () => ({ Queue: MockQueue }));
 vi.mock('@resume-platform/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
 }));
 
 import { config } from '@resume-platform/config';
@@ -114,7 +121,9 @@ describe('QueueProducer', () => {
       close: vi.fn(),
     }));
 
-    await expect(producer.addJob('ocr-queue', 'process-ocr', jobData)).rejects.toThrow('redis down');
+    await expect(producer.addJob('ocr-queue', 'process-ocr', jobData)).rejects.toThrow(
+      'redis down'
+    );
   });
 
   it('closes every queue and forgets them so new ones are created afterwards', async () => {

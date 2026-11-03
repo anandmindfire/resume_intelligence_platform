@@ -1,21 +1,19 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
 import type { EducationBarChartProps } from '../types';
+import { chartColors } from '../theme';
 
 export const EducationBarChart: React.FC<EducationBarChartProps> = ({ data, height = 300 }) => {
-  const displayData = data.slice(0, 10).map(item => ({
+  const displayData = data.slice(0, 10).map((item) => ({
     ...item,
-    institution: item.institution && item.institution.length > 20 
-      ? item.institution.substring(0, 20) + '...' 
-      : item.institution || 'Unknown',
+    institution:
+      item.institution && item.institution.length > 20
+        ? item.institution.substring(0, 20) + '...'
+        : item.institution || 'Unknown',
   }));
 
   if (displayData.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        No education data available
-      </div>
-    );
+    return <div className="text-center py-12 text-neutral-500">No education data available</div>;
   }
 
   const options = {
@@ -42,14 +40,14 @@ export const EducationBarChart: React.FC<EducationBarChartProps> = ({ data, heig
       offsetY: -20,
       style: {
         fontSize: '12px',
-        colors: ['#64748b'],
+        colors: [chartColors.axis],
       },
     },
     xaxis: {
-      categories: displayData.map(item => item.institution),
+      categories: displayData.map((item) => item.institution),
       labels: {
         style: {
-          colors: '#64748b',
+          colors: chartColors.axis,
           fontSize: '12px',
         },
         rotate: -45,
@@ -59,7 +57,7 @@ export const EducationBarChart: React.FC<EducationBarChartProps> = ({ data, heig
     yaxis: {
       labels: {
         style: {
-          colors: '#64748b',
+          colors: chartColors.axis,
           fontSize: '12px',
         },
       },
@@ -70,16 +68,16 @@ export const EducationBarChart: React.FC<EducationBarChartProps> = ({ data, heig
         shade: 'light',
         type: 'vertical',
         shadeIntensity: 0.3,
-        gradientToColors: ['#10b981'],
+        gradientToColors: [chartColors.emerald],
         inverseColors: false,
         opacityFrom: 1,
         opacityTo: 0.8,
         stops: [0, 100],
       },
     },
-    colors: ['#10b981'],
+    colors: [chartColors.emerald],
     grid: {
-      borderColor: '#e2e8f0',
+      borderColor: chartColors.grid,
       strokeDashArray: 3,
     },
     tooltip: {
@@ -93,16 +91,9 @@ export const EducationBarChart: React.FC<EducationBarChartProps> = ({ data, heig
   const series = [
     {
       name: 'Resume Count',
-      data: displayData.map(item => item.count),
+      data: displayData.map((item) => item.count),
     },
   ];
 
-  return (
-    <Chart
-      options={options}
-      series={series}
-      type="bar"
-      height={height}
-    />
-  );
+  return <Chart options={options} series={series} type="bar" height={height} />;
 };

@@ -36,6 +36,8 @@ vi.mock('./queues/queueHandler', () => ({
 
 vi.mock('@resume-platform/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
 }));
 
 import { config } from '@resume-platform/config';
@@ -70,7 +72,11 @@ function multipart(parts: Part[]) {
   };
 }
 
-const resumeFile = (filename = 'jane.pdf', contentType = PDF, content = '%PDF-1.4 resume'): Part => ({
+const resumeFile = (
+  filename = 'jane.pdf',
+  contentType = PDF,
+  content = '%PDF-1.4 resume'
+): Part => ({
   field: 'resume',
   filename,
   contentType,
@@ -106,6 +112,28 @@ describe('upload-service app', () => {
     }
   });
 
+  describe('request correlation', () => {
+    it('adopts the x-request-id sent by the gateway and returns it', async () => {
+      const res = await app.inject({
+        url: '/health',
+        headers: { 'x-request-id': 'gateway-trace-0001' },
+      });
+
+      expect(res.headers['x-request-id']).toBe('gateway-trace-0001');
+    });
+
+    it('generates an id for direct calls and ignores malformed ones', async () => {
+      const direct = await app.inject({ url: '/health' });
+      const forged = await app.inject({
+        url: '/health',
+        headers: { 'x-request-id': 'bad id\nforged-log-line' },
+      });
+
+      expect(direct.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+      expect(forged.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    });
+  });
+
   describe('GET /health', () => {
     it('reports ok', async () => {
       const res = await app.inject({ method: 'GET', url: '/health' });
@@ -124,7 +152,11 @@ describe('upload-service app', () => {
 
   describe('POST /api/v1/upload/single', () => {
     it('stores the file, records it and queues it for OCR', async () => {
-      const res = await app.inject({ method: 'POST', url: '/api/v1/upload/single', ...multipart([resumeFile()]) });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/single',
+        ...multipart([resumeFile()]),
+      });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
@@ -188,7 +220,9 @@ describe('upload-service app', () => {
       });
 
       expect(res.statusCode).toBe(413);
-      expect(res.json()).toEqual({ error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes` });
+      expect(res.json()).toEqual({
+        error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes`,
+      });
       expect(await storedFiles()).toEqual([]);
       expect(db.createResume).not.toHaveBeenCalled();
       expect(queue.queueOCRJob).not.toHaveBeenCalled();
@@ -202,7 +236,9 @@ describe('upload-service app', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      expect(db.createResume).toHaveBeenCalledWith(expect.objectContaining({ fileSize: config.upload.maxSize }));
+      expect(db.createResume).toHaveBeenCalledWith(
+        expect.objectContaining({ fileSize: config.upload.maxSize })
+      );
     });
 
     it('leaves the server healthy after rejecting a large disallowed file', async () => {
@@ -213,14 +249,22 @@ describe('upload-service app', () => {
       });
       expect(rejected.statusCode).toBe(400);
 
-      const accepted = await app.inject({ method: 'POST', url: '/api/v1/upload/single', ...multipart([resumeFile()]) });
+      const accepted = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/single',
+        ...multipart([resumeFile()]),
+      });
       expect(accepted.statusCode).toBe(201);
     });
 
     it('returns 500 when the database insert fails', async () => {
       db.createResume.mockRejectedValueOnce(new Error('db down'));
 
-      const res = await app.inject({ method: 'POST', url: '/api/v1/upload/single', ...multipart([resumeFile()]) });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/single',
+        ...multipart([resumeFile()]),
+      });
 
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to upload resume' });
@@ -230,7 +274,11 @@ describe('upload-service app', () => {
     it('returns 500 when queueing fails', async () => {
       queue.queueOCRJob.mockRejectedValueOnce(new Error('redis down'));
 
-      const res = await app.inject({ method: 'POST', url: '/api/v1/upload/single', ...multipart([resumeFile()]) });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/single',
+        ...multipart([resumeFile()]),
+      });
 
       expect(res.statusCode).toBe(500);
     });
@@ -259,7 +307,11 @@ describe('upload-service app', () => {
 
       const stored = await storedFiles();
       expect(stored).toHaveLength(2);
-      for (const name of stored) expect(name).toMatch(/^[0-9a-f-]{36}\.(pdf|png)$/);
+      // Same naming scheme as a single upload: <original base name>-<timestamp>-<random>.<ext>.
+      expect(stored.sort()).toEqual([
+        expect.stringMatching(/^a-\d+-[a-z0-9]+\.pdf$/),
+        expect.stringMatching(/^b-\d+-[a-z0-9]+\.png$/),
+      ]);
       expect(db.createResume).toHaveBeenCalledTimes(2);
       expect(queue.queueOCRJob).toHaveBeenCalledTimes(2);
     });
@@ -279,7 +331,11 @@ describe('upload-service app', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/upload/multiple',
-        ...many(resumeFile('a.pdf'), resumeFile('c.txt', 'text/plain', 'x'.repeat(4096)), resumeFile('b.png', 'image/png', 'png')),
+        ...many(
+          resumeFile('a.pdf'),
+          resumeFile('c.txt', 'text/plain', 'x'.repeat(4096)),
+          resumeFile('b.png', 'image/png', 'png')
+        ),
       });
 
       expect(res.statusCode).toBe(201);
@@ -326,14 +382,20 @@ describe('upload-service app', () => {
         error: 'No files uploaded',
         results: [
           { fileName: 'c.txt', status: 'failed', error: 'File type text/plain not allowed' },
-          { fileName: 'big.pdf', status: 'failed', error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes` },
+          {
+            fileName: 'big.pdf',
+            status: 'failed',
+            error: `File size exceeds maximum allowed size of ${config.upload.maxSize} bytes`,
+          },
         ],
       });
       expect(await storedFiles()).toEqual([]);
     });
 
     it('marks a file as failed and removes it when recording it fails', async () => {
-      db.createResume.mockRejectedValueOnce(new Error('duplicate key')).mockResolvedValueOnce(undefined);
+      db.createResume
+        .mockRejectedValueOnce(new Error('duplicate key'))
+        .mockResolvedValueOnce(undefined);
 
       const res = await app.inject({
         method: 'POST',
@@ -343,7 +405,11 @@ describe('upload-service app', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.json()).toMatchObject({ total: 2, success: 1, failed: 1 });
-      expect(res.json().results[0]).toEqual({ fileName: 'a.pdf', status: 'failed', error: 'duplicate key' });
+      expect(res.json().results[0]).toEqual({
+        fileName: 'a.pdf',
+        status: 'failed',
+        error: 'duplicate key',
+      });
       expect(await storedFiles()).toHaveLength(1);
     });
   });
@@ -403,7 +469,10 @@ describe('upload-service app', () => {
     });
 
     it('still deletes the record when the file is already gone', async () => {
-      db.getResume.mockResolvedValueOnce({ id: 'r-1', file_path: path.join(uploadDir, 'gone.pdf') } as never);
+      db.getResume.mockResolvedValueOnce({
+        id: 'r-1',
+        file_path: path.join(uploadDir, 'gone.pdf'),
+      } as never);
 
       const res = await app.inject({ method: 'DELETE', url: '/api/v1/upload/resumes/r-1' });
 
@@ -454,7 +523,10 @@ describe('upload-service app', () => {
     });
 
     it('returns 404 when the stored file is missing', async () => {
-      db.getResume.mockResolvedValueOnce({ id: 'r-1', file_path: path.join(uploadDir, 'gone.pdf') } as never);
+      db.getResume.mockResolvedValueOnce({
+        id: 'r-1',
+        file_path: path.join(uploadDir, 'gone.pdf'),
+      } as never);
       const res = await app.inject({ method: 'GET', url: '/api/v1/upload/resumes/r-1/file' });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'File not found on server' });
@@ -470,7 +542,11 @@ describe('upload-service app', () => {
 
   describe('POST /api/internal/queue/matcher', () => {
     it('queues a matcher job', async () => {
-      const res = await app.inject({ method: 'POST', url: '/api/internal/queue/matcher', payload: { resumeId: 'r-1' } });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/internal/queue/matcher',
+        payload: { resumeId: 'r-1' },
+      });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ success: true, message: 'Matcher job queued', resumeId: 'r-1' });
@@ -478,14 +554,22 @@ describe('upload-service app', () => {
     });
 
     it('returns 400 without a resumeId', async () => {
-      const res = await app.inject({ method: 'POST', url: '/api/internal/queue/matcher', payload: {} });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/internal/queue/matcher',
+        payload: {},
+      });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({ error: 'resumeId is required' });
     });
 
     it('returns 500 when queueing fails', async () => {
       queue.queueMatcherJob.mockRejectedValueOnce(new Error('bull down'));
-      const res = await app.inject({ method: 'POST', url: '/api/internal/queue/matcher', payload: { resumeId: 'r-1' } });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/internal/queue/matcher',
+        payload: { resumeId: 'r-1' },
+      });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to queue matcher job' });
     });

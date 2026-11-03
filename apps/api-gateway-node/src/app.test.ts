@@ -1,8 +1,12 @@
+import http from 'http';
+import type { AddressInfo } from 'net';
 import Fastify, { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@resume-platform/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
 }));
 
 import { config } from '@resume-platform/config';
@@ -19,6 +23,7 @@ async function startUpstream(service: string, spec: Record<string, unknown>) {
     method: request.method,
     url: request.url,
     forwardedFor: request.headers['x-forwarded-for'] ?? null,
+    requestId: request.headers['x-request-id'] ?? null,
     body: request.body ?? null,
   }));
   const address = await upstream.listen({ port: 0, host: '127.0.0.1' });
@@ -80,7 +85,8 @@ describe('api-gateway app', () => {
     await analytics.close();
     config.uploadService.url = original.uploadUrl;
     config.analyticsApi.url = original.analyticsUrl;
-    for (const [key, upstream] of Object.entries(original.upstreams)) gatewayRoutes[key].upstream = upstream;
+    for (const [key, upstream] of Object.entries(original.upstreams))
+      gatewayRoutes[key].upstream = upstream;
   });
 
   describe('GET /health', () => {
@@ -88,7 +94,10 @@ describe('api-gateway app', () => {
       const res = await app.inject({ url: '/health' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toMatchObject({ status: 'ok', services: { upload: 'healthy', analytics: 'healthy' } });
+      expect(res.json()).toMatchObject({
+        status: 'ok',
+        services: { upload: 'healthy', analytics: 'healthy' },
+      });
     });
 
     it('reports an unreachable upstream as unhealthy but stays 200', async () => {
@@ -105,7 +114,12 @@ describe('api-gateway app', () => {
   });
 
   describe('API info', () => {
-    const endpoints = { upload: '/api/upload', analytics: '/api/analytics', jobs: '/api/jobs', resumes: '/api/resumes' };
+    const endpoints = {
+      upload: '/api/upload',
+      analytics: '/api/analytics',
+      jobs: '/api/jobs',
+      resumes: '/api/resumes',
+    };
 
     it('GET /api/v1 lists the endpoint prefixes', async () => {
       const res = await app.inject({ url: '/api/v1' });
@@ -119,7 +133,11 @@ describe('api-gateway app', () => {
 
     it('GET /api keeps the legacy shape', async () => {
       const res = await app.inject({ url: '/api' });
-      expect(res.json()).toEqual({ message: 'Resume Intelligence Platform API Gateway', version: '1.0.0', endpoints });
+      expect(res.json()).toEqual({
+        message: 'Resume Intelligence Platform API Gateway',
+        version: '1.0.0',
+        endpoints,
+      });
     });
   });
 
@@ -129,31 +147,208 @@ describe('api-gateway app', () => {
       ['GET', '/api/upload/abc/status', 'upload', '/api/v1/upload/abc/status'],
       ['DELETE', '/api/upload/resumes/abc', 'upload', '/api/v1/upload/resumes/abc'],
       ['GET', '/api/analytics/dashboard', 'analytics', '/api/v1/dashboard'],
-      ['GET', '/api/analytics/resumes?keyword=jane&page=2', 'analytics', '/api/v1/resumes?keyword=jane&page=2'],
+      [
+        'GET',
+        '/api/analytics/resumes?keyword=jane&page=2',
+        'analytics',
+        '/api/v1/resumes?keyword=jane&page=2',
+      ],
       ['GET', '/api/jobs', 'analytics', '/api/v1/jobs'],
       ['GET', '/api/jobs/with-matches', 'analytics', '/api/v1/jobs/with-matches'],
       ['POST', '/api/jobs/seed', 'analytics', '/api/v1/jobs/seed'],
       ['GET', '/api/resumes/r-1', 'analytics', '/api/v1/resumes/r-1'],
     ] as const)('%s %s -> %s %s', async (method, url, service, upstreamUrl) => {
-      const res = await app.inject({ method, url, ...(method === 'POST' ? { payload: { a: 1 } } : {}) });
+      const res = await app.inject({
+        method,
+        url,
+        ...(method === 'POST' ? { payload: { a: 1 } } : {}),
+      });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toMatchObject({ service, method, url: upstreamUrl });
     });
 
-    it('forwards the client IP on upload requests', async () => {
-      const res = await app.inject({ method: 'POST', url: '/api/upload/single', remoteAddress: '10.1.2.3', payload: {} });
+    it.each([
+      ['upload', '/api/upload/abc/status'],
+      ['analytics', '/api/analytics/dashboard'],
+      ['jobs', '/api/jobs'],
+      ['resumes', '/api/resumes/r-1'],
+    ])(
+      'forwards the client IP to the %s upstream (previously only uploads did)',
+      async (_route, url) => {
+        const res = await app.inject({ url, remoteAddress: '10.1.2.3' });
+        expect(res.json().forwardedFor).toBe('10.1.2.3');
+      }
+    );
+
+    it('does not let clients spoof x-forwarded-for when proxies are not trusted', async () => {
+      const res = await app.inject({
+        url: '/api/jobs',
+        remoteAddress: '10.1.2.3',
+        headers: { 'x-forwarded-for': '6.6.6.6' },
+      });
       expect(res.json().forwardedFor).toBe('10.1.2.3');
     });
 
+    it('forwards the client address from x-forwarded-for when TRUST_PROXY is configured', async () => {
+      const original = config.http.trustProxy;
+      config.http.trustProxy = 1;
+      const trusting = await buildApp();
+      try {
+        const res = await trusting.inject({
+          url: '/api/jobs',
+          remoteAddress: '10.0.0.1', // the edge proxy
+          headers: { 'x-forwarded-for': '203.0.113.7' },
+        });
+        expect(res.json().forwardedFor).toBe('203.0.113.7');
+      } finally {
+        config.http.trustProxy = original;
+        await trusting.close();
+      }
+    });
+
+    describe('request correlation', () => {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+      it('generates a request id, returns it to the client and forwards the same id upstream', async () => {
+        const res = await app.inject({ url: '/api/jobs' });
+
+        expect(res.headers['x-request-id']).toMatch(UUID_RE);
+        expect(res.json().requestId).toBe(res.headers['x-request-id']);
+      });
+
+      it('adopts a well-formed inbound x-request-id (e.g. from the edge proxy) across the whole chain', async () => {
+        const res = await app.inject({
+          url: '/api/jobs',
+          headers: { 'x-request-id': 'nginx-edge-id-0001' },
+        });
+
+        expect(res.headers['x-request-id']).toBe('nginx-edge-id-0001');
+        expect(res.json().requestId).toBe('nginx-edge-id-0001');
+      });
+
+      it('replaces a malformed inbound id instead of forwarding attacker-controlled text', async () => {
+        const res = await app.inject({
+          url: '/api/jobs',
+          headers: { 'x-request-id': 'bad id; drop table' },
+        });
+
+        expect(res.headers['x-request-id']).toMatch(UUID_RE);
+        expect(res.json().requestId).toBe(res.headers['x-request-id']);
+      });
+
+      it('tags gateway-owned routes too', async () => {
+        const res = await app.inject({ url: '/api/v1' });
+        expect(res.headers['x-request-id']).toMatch(UUID_RE);
+      });
+    });
+
     it('forwards request bodies', async () => {
-      const res = await app.inject({ method: 'POST', url: '/api/analytics/export/csv', payload: { resumeIds: ['a'] } });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analytics/export/csv',
+        payload: { resumeIds: ['a'] },
+      });
       expect(res.json()).toMatchObject({ url: '/api/v1/export/csv', body: { resumeIds: ['a'] } });
     });
 
-    it('returns 404 for unknown paths', async () => {
-      const res = await app.inject({ url: '/api/unknown' });
+    it('returns a 404 in the gateway error envelope for unknown paths', async () => {
+      const res = await app.inject({
+        url: '/api/unknown',
+        headers: { 'x-request-id': 'edge-trace-0404' },
+      });
+
       expect(res.statusCode).toBe(404);
+      expect(res.json()).toEqual({
+        success: false,
+        error: 'Route not found',
+        requestId: 'edge-trace-0404',
+      });
+    });
+  });
+
+  describe('upstream failures', () => {
+    /** Builds a gateway whose upload route points at `upstream`, restoring the shared config afterwards. */
+    async function withUploadUpstream<T>(
+      upstream: string,
+      timeout: number,
+      run: (gateway: FastifyInstance) => Promise<T>
+    ) {
+      const original = { ...gatewayRoutes.upload };
+      gatewayRoutes.upload.upstream = upstream;
+      gatewayRoutes.upload.timeout = timeout;
+      const gateway = await buildApp();
+      try {
+        return await run(gateway);
+      } finally {
+        Object.assign(gatewayRoutes.upload, original);
+        await gateway.close();
+      }
+    }
+
+    it('answers 504 instead of hanging when an upstream stops responding (the route timeout is applied)', async () => {
+      const hanging = http.createServer(() => {
+        /* accept the request, never respond */
+      });
+      await new Promise<void>((resolve) => hanging.listen(0, '127.0.0.1', resolve));
+      const { port } = hanging.address() as AddressInfo;
+      const started = Date.now();
+
+      try {
+        await withUploadUpstream(`http://127.0.0.1:${port}`, 300, async (gateway) => {
+          const res = await gateway.inject({
+            url: '/api/upload/abc/status',
+            headers: { 'x-request-id': 'edge-trace-0504' },
+          });
+
+          expect(res.statusCode).toBe(504);
+          expect(res.json()).toEqual({
+            success: false,
+            error: 'Upstream service timed out',
+            requestId: 'edge-trace-0504',
+          });
+          expect(Date.now() - started).toBeLessThan(3000);
+        });
+      } finally {
+        hanging.closeAllConnections();
+        await new Promise((resolve) => hanging.close(resolve));
+      }
+    });
+
+    it('answers 503 when an upstream refuses connections', async () => {
+      const closed = http.createServer();
+      await new Promise<void>((resolve) => closed.listen(0, '127.0.0.1', resolve));
+      const { port } = closed.address() as AddressInfo;
+      await new Promise((resolve) => closed.close(resolve));
+
+      await withUploadUpstream(`http://127.0.0.1:${port}`, 1000, async (gateway) => {
+        const res = await gateway.inject({ url: '/api/upload/abc/status' });
+
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toMatchObject({ success: false, error: 'Upstream service unavailable' });
+        expect(JSON.stringify(res.json())).not.toContain(String(port));
+      });
+    });
+
+    it('answers 502 when an upstream drops the connection without responding', async () => {
+      const dropping = http.createServer((req) => req.socket.destroy());
+      await new Promise<void>((resolve) => dropping.listen(0, '127.0.0.1', resolve));
+      const { port } = dropping.address() as AddressInfo;
+
+      try {
+        await withUploadUpstream(`http://127.0.0.1:${port}`, 1000, async (gateway) => {
+          const res = await gateway.inject({ url: '/api/upload/abc/status' });
+
+          expect(res.statusCode).toBe(502);
+          expect(res.json()).toMatchObject({ success: false, error: 'Bad gateway' });
+        });
+      } finally {
+        await new Promise((resolve) => dropping.close(resolve));
+      }
+    });
+
+    it('applies each route’s own timeout (uploads get longer than reads)', () => {
+      expect(gatewayRoutes.upload.timeout).toBeGreaterThan(gatewayRoutes.analytics.timeout ?? 0);
     });
   });
 
@@ -174,8 +369,12 @@ describe('api-gateway app', () => {
 
       const initializer = (await app.inject({ url: '/docs/static/swagger-initializer.js' })).body;
       expect(initializer).toContain('"name":"API Gateway","url":"/docs/json"');
-      expect(initializer).toContain('"name":"Upload Service (via gateway)","url":"/docs/services/upload/json"');
-      expect(initializer).toContain('"name":"Analytics API (via gateway)","url":"/docs/services/analytics/json"');
+      expect(initializer).toContain(
+        '"name":"Upload Service (via gateway)","url":"/docs/services/upload/json"'
+      );
+      expect(initializer).toContain(
+        '"name":"Analytics API (via gateway)","url":"/docs/services/analytics/json"'
+      );
     });
 
     it('re-publishes the upload service spec with gateway paths', async () => {
@@ -190,7 +389,11 @@ describe('api-gateway app', () => {
 
     it('re-publishes the analytics spec mapping jobs and resumes to their own prefixes', async () => {
       const spec = (await app.inject({ url: '/docs/services/analytics/json' })).json();
-      expect(Object.keys(spec.paths)).toEqual(['/api/analytics/dashboard', '/api/jobs/{id}', '/api/resumes']);
+      expect(Object.keys(spec.paths)).toEqual([
+        '/api/analytics/dashboard',
+        '/api/jobs/{id}',
+        '/api/resumes',
+      ]);
     });
 
     it('returns 404 for an unknown service', async () => {
@@ -204,7 +407,10 @@ describe('api-gateway app', () => {
       try {
         const res = await app.inject({ url: '/docs/services/upload/json' });
         expect(res.statusCode).toBe(502);
-        expect(res.json()).toEqual({ success: false, error: 'Upload Service docs are unavailable' });
+        expect(res.json()).toEqual({
+          success: false,
+          error: 'Upload Service docs are unavailable',
+        });
       } finally {
         gatewayRoutes.upload.upstream = config.uploadService.url;
       }

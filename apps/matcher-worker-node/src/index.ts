@@ -1,4 +1,4 @@
-import { logger } from '@resume-platform/logger';
+import { logger, getErrorMessage } from '@resume-platform/logger';
 import { queueConsumer } from '@resume-platform/queue-lib';
 import { processMatchJob } from './processors/matchProcessor';
 import { matcherQueueConfig } from './queues/queueConfig';
@@ -6,13 +6,9 @@ import { matcherQueueConfig } from './queues/queueConfig';
 const main = async () => {
   logger.info('Starting Matcher Worker');
 
-  queueConsumer.createWorker(
-    matcherQueueConfig.queueName,
-    processMatchJob,
-    {
-      concurrency: matcherQueueConfig.concurrency,
-    }
-  );
+  queueConsumer.createWorker(matcherQueueConfig.queueName, processMatchJob, {
+    concurrency: matcherQueueConfig.concurrency,
+  });
 
   // Graceful shutdown
   process.on('SIGTERM', async () => {
@@ -22,7 +18,7 @@ const main = async () => {
   });
 };
 
-main().catch((error) => {
-  logger.error('Failed to start matcher worker', { error: error.message });
+main().catch((error: unknown) => {
+  logger.error('Failed to start matcher worker', { error: getErrorMessage(error) });
   process.exit(1);
 });

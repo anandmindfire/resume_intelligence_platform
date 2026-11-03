@@ -1,10 +1,9 @@
-import { queueProducer } from '@resume-platform/queue-lib';
+import { queueProducer, QUEUE_NAMES, JOB_NAMES } from '@resume-platform/queue-lib';
 import type { QueueJobData } from '@resume-platform/queue-lib';
-import { logger } from '@resume-platform/logger';
+import { logger, getErrorMessage } from '@resume-platform/logger';
 import { config } from '@resume-platform/config';
 import Redis from 'ioredis';
 import type { OCRJobData } from '../types';
-import { getErrorMessage } from '../utils/errors';
 
 // Redis client for simple list queues (used by Python workers)
 const redisClient = new Redis({
@@ -19,7 +18,7 @@ export class QueueHandler {
   async queueOCRJob(data: OCRJobData): Promise<void> {
     try {
       // Queue to BullMQ (for Node.js workers if any)
-      await queueProducer.addJob('ocr-queue', 'process-ocr', {
+      await queueProducer.addJob(QUEUE_NAMES.OCR, JOB_NAMES.PROCESS_OCR, {
         resumeId: data.resumeId,
         filePath: data.filePath,
         fileName: data.fileName,
@@ -27,16 +26,19 @@ export class QueueHandler {
       });
 
       // Also push to simple Redis list for Python workers
-      await redisClient.rpush('ocr-queue', JSON.stringify({
-        resumeId: data.resumeId,
-        filePath: data.filePath,
-        fileName: data.fileName,
-        mimeType: data.mimeType,
-      }));
+      await redisClient.rpush(
+        QUEUE_NAMES.OCR,
+        JSON.stringify({
+          resumeId: data.resumeId,
+          filePath: data.filePath,
+          fileName: data.fileName,
+          mimeType: data.mimeType,
+        })
+      );
 
       logger.info('OCR job queued to both BullMQ and Redis list', {
         resumeId: data.resumeId,
-        fileName: data.fileName
+        fileName: data.fileName,
       });
     } catch (error) {
       logger.error('Failed to queue OCR job', {
@@ -50,7 +52,7 @@ export class QueueHandler {
   async queueParserJob(resumeId: string, extractedText: string): Promise<void> {
     try {
       // Queue to BullMQ
-      await queueProducer.addJob('parser-queue', 'process-parser', {
+      await queueProducer.addJob(QUEUE_NAMES.PARSER, JOB_NAMES.PROCESS_PARSER, {
         resumeId,
         extractedText,
         filePath: '', // Not needed for parser job
@@ -59,10 +61,13 @@ export class QueueHandler {
       } as QueueJobData);
 
       // Also push to simple Redis list for Python workers
-      await redisClient.rpush('parser-queue', JSON.stringify({
-        resumeId,
-        extractedText,
-      }));
+      await redisClient.rpush(
+        QUEUE_NAMES.PARSER,
+        JSON.stringify({
+          resumeId,
+          extractedText,
+        })
+      );
 
       logger.info('Parser job queued to both BullMQ and Redis list', { resumeId });
     } catch (error) {
@@ -76,7 +81,7 @@ export class QueueHandler {
 
   async queueMatcherJob(resumeId: string): Promise<void> {
     try {
-      await queueProducer.addJob('matcher-queue', 'process-match', {
+      await queueProducer.addJob(QUEUE_NAMES.MATCHER, JOB_NAMES.PROCESS_MATCH, {
         resumeId,
         filePath: '', // Not needed for matcher job
         fileName: '', // Not needed for matcher job

@@ -6,6 +6,7 @@ import { JobDetailModal } from '../components/JobDetailModal';
 import { Search, Filter, Briefcase } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
 import { resumeService } from '../services/resumeService';
+import { filterJobs } from '../utils/jobFilters';
 import { COPY } from '../constants';
 
 export const Jobs: React.FC = () => {
@@ -25,32 +26,13 @@ export const Jobs: React.FC = () => {
   const [domainFilter, setDomainFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.skills.some((s) =>
-          s.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      const matchesDomain =
-        domainFilter === 'all' || job.domain === domainFilter;
-      const matchesLocation =
-        locationFilter === 'all' ||
-        job.location.toLowerCase().includes(locationFilter.toLowerCase());
-      return matchesSearch && matchesDomain && matchesLocation;
-    });
-  }, [jobs, searchQuery, domainFilter, locationFilter]);
+  const filteredJobs = useMemo(
+    () => filterJobs(jobs, { searchQuery, domainFilter, locationFilter }),
+    [jobs, searchQuery, domainFilter, locationFilter]
+  );
 
-  const uniqueDomains = useMemo(
-    () => Array.from(new Set(jobs.map((j) => j.domain))),
-    [jobs]
-  );
-  const uniqueLocations = useMemo(
-    () => Array.from(new Set(jobs.map((j) => j.location))),
-    [jobs]
-  );
+  const uniqueDomains = useMemo(() => Array.from(new Set(jobs.map((j) => j.domain))), [jobs]);
+  const uniqueLocations = useMemo(() => Array.from(new Set(jobs.map((j) => j.location))), [jobs]);
 
   const handleJobClick = async (job: import('../types').Job) => {
     setSelectedJob(job);
@@ -72,27 +54,35 @@ export const Jobs: React.FC = () => {
       <Card title={COPY.LABELS.FILTERS} className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="job-search"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               <Search className="w-4 h-4 inline mr-2" />
               {COPY.LABELS.SEARCH}
             </label>
             <input
+              id="job-search"
               type="text"
               placeholder={COPY.LABELS.SEARCH_JOBS}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="job-domain"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               <Filter className="w-4 h-4 inline mr-2" />
               {COPY.LABELS.DOMAIN}
             </label>
             <select
+              id="job-domain"
               value={domainFilter}
               onChange={(e) => setDomainFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">{COPY.LABELS.ALL_DOMAINS}</option>
               {uniqueDomains.map((domain) => (
@@ -103,14 +93,18 @@ export const Jobs: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="job-location"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               <Briefcase className="w-4 h-4 inline mr-2" />
               {COPY.LABELS.LOCATION}
             </label>
             <select
+              id="job-location"
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">{COPY.LABELS.ALL_LOCATIONS}</option>
               {uniqueLocations.map((location) => (
@@ -124,7 +118,11 @@ export const Jobs: React.FC = () => {
       </Card>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          aria-live="polite"
+          aria-busy="true"
+        >
           {Array.from({ length: 6 }).map((_, i) => (
             <JobCardSkeleton key={i} />
           ))}

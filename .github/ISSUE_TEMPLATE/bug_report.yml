@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a problem with the Resume Intelligence Platform
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please check whether this issue has already been reported.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you were doing when it occurred.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest set of steps that reliably reproduces the problem.
+      placeholder: |
+        1. Start ...
+        2. Open ...
+        3. Submit ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include relevant versions, service or worker, and whether you use Docker or local development.
+      placeholder: |
+        - Node.js / Python version:
+        - Service or worker:
+        - Docker or local development:
+        - Browser (if applicable):
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Redact credentials, tokens, and personal or resume data before sharing.
+      render: text
+    validations:
+      required: false

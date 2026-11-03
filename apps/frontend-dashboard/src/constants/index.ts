@@ -1,3 +1,5 @@
+import { chartColors } from '../theme';
+
 export { API_BASE_URL, API_PATHS } from './api';
 export { COPY } from './copy';
 export {
@@ -13,27 +15,28 @@ export const ALLOWED_FILE_TYPES = {
   'image/png': ['.png'],
 };
 
+/** Categorical series colors, in the order series are assigned. */
 export const CHART_COLORS = [
-  '#6366f1', // indigo
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#f97316', // orange
-  '#06b6d4', // cyan
+  chartColors.indigo,
+  chartColors.emerald,
+  chartColors.amber,
+  chartColors.red,
+  chartColors.blue,
+  chartColors.violet,
+  chartColors.pink,
+  chartColors.teal,
+  chartColors.orange,
+  chartColors.cyan,
 ];
 
 export const STATUS_COLORS: Record<string, string> = {
-  uploaded: '#3b82f6',
-  processing: '#f59e0b',
-  parsed: '#8b5cf6',
-  matched: '#10b981',
-  completed: '#10b981',
-  failed: '#ef4444',
-  error: '#ef4444',
-  pending: '#64748b',
-  queued: '#64748b',
+  uploaded: chartColors.blue,
+  processing: chartColors.amber,
+  parsed: chartColors.violet,
+  matched: chartColors.emerald,
+  completed: chartColors.emerald,
+  failed: chartColors.red,
+  error: chartColors.red,
+  pending: chartColors.axis,
+  queued: chartColors.axis,
 };

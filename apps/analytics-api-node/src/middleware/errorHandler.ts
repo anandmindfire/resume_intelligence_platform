@@ -2,11 +2,7 @@ import { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '@resume-platform/logger';
 import { ApiError } from '../types';
 
-export function errorHandler(
-  error: FastifyError,
-  request: FastifyRequest,
-  reply: FastifyReply
-) {
+export function errorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply) {
   logger.error('Analytics API error', {
     error: error.message,
     stack: error.stack,
@@ -16,8 +12,10 @@ export function errorHandler(
   });
 
   const statusCode = error.statusCode || 500;
+  // Client errors (malformed JSON, rate limited, ...) carry a message the caller can act on; server errors are masked.
+  const isClientError = statusCode >= 400 && statusCode < 500;
   const apiError: ApiError = {
-    error: 'Internal server error',
+    error: isClientError ? error.message : 'Internal server error',
     statusCode,
   };
 
