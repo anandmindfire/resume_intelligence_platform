@@ -4,7 +4,7 @@ import { defineProject } from 'vitest/config';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-const WORKSPACE_PACKAGES = ['config', 'logger', 'queue-lib', 'resume-nlp', 'role-matching'];
+const WORKSPACE_PACKAGES = ['config', 'logger', 'http-kit', 'queue-lib', 'resume-nlp', 'role-matching'];
 
 /** Resolve workspace packages to their TypeScript sources so tests don't need a prior build. */
 export const workspaceAliases = Object.fromEntries(

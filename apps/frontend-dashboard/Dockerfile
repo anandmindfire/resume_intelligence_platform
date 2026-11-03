@@ -1,5 +1,5 @@
 # Multi-stage build for Frontend Dashboard microservice
-FROM node:18-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate

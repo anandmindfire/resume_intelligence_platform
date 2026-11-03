@@ -25,8 +25,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 18 matches .nvmrc and the service Docker images; 22 catches drift on newer runtimes.
-        node: [18, 22]
+        # 24 matches .nvmrc and the service Docker images; 22 is the previous LTS, kept to catch
+        # regressions for anyone still on it.
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +55,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload coverage report
-        if: matrix.node == 18 && always()
+        if: matrix.node == 24 && always()
         uses: actions/upload-artifact@v4
         with:
           name: node-coverage

@@ -1,9 +1,15 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Accessibility linting only applies where there's JSX to lint (the frontend dashboard).
+    files: ['**/*.tsx'],
+    ...jsxA11y.flatConfigs.recommended,
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
@@ -38,8 +44,8 @@ export default tseslint.config(
       'build/**',
       '.next/**',
       'coverage/**',
-      '*.config.{js,mjs,ts,mts}',
-      'vitest.shared.mts',
+      '**/*.config.{js,mjs,ts,mts}',
+      '**/vitest.shared.mts',
     ],
   }
 );

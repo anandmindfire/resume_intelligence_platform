@@ -32,6 +32,45 @@ export interface UploadConfig {
   maxConcurrent?: number;
 }
 
+/**
+ * Fastify `trustProxy` setting from TRUST_PROXY.
+ *
+ * - unset / "false" -> false (don't trust X-Forwarded-* headers; the safe default)
+ * - "true"          -> true  (trust every hop; only safe if clients can never reach the service directly)
+ * - "1", "2", ...   -> number of trusted proxy hops in front of the service
+ * - anything else   -> comma-separated list of trusted proxy IPs / CIDRs
+ *
+ * It decides what `request.ip` is, and therefore who per-IP rate limiting is applied to.
+ */
+export function parseTrustProxy(value: string | undefined): boolean | number | string[] {
+  const raw = value?.trim();
+  if (!raw || raw.toLowerCase() === 'false') return false;
+  if (raw.toLowerCase() === 'true') return true;
+  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+/**
+ * CORS `origin` setting from CORS_ORIGINS.
+ *
+ * - unset           -> true  (reflect any origin; the legacy behaviour, fine behind a same-origin proxy)
+ * - "false"         -> false (no cross-origin access)
+ * - comma-separated -> exact origin allow-list
+ */
+export function parseCorsOrigins(value: string | undefined): boolean | string[] {
+  const raw = value?.trim();
+  if (!raw) return true;
+  if (raw.toLowerCase() === 'false') return false;
+  if (raw.toLowerCase() === 'true') return true;
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   database: {
     host: process.env.POSTGRES_HOST || 'localhost',
@@ -61,7 +100,10 @@ export const config = {
 
   upload: {
     maxSize: parseInt(process.env.UPLOAD_MAX_SIZE || '10485760', 10), // 10MB default
-    allowedTypes: (process.env.UPLOAD_ALLOWED_TYPES || 'application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png').split(','),
+    allowedTypes: (
+      process.env.UPLOAD_ALLOWED_TYPES ||
+      'application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png'
+    ).split(','),
     directory: process.env.UPLOAD_DIRECTORY || '/app/uploads',
     maxConcurrent: parseInt(process.env.UPLOAD_MAX_CONCURRENT || '0', 10), // 0 = no limit; set per-replica under burst (e.g. 50)
   } as UploadConfig,
@@ -79,6 +121,15 @@ export const config = {
   analyticsApi: {
     port: parseInt(process.env.ANALYTICS_API_PORT || '3002', 10),
     url: process.env.ANALYTICS_API_URL || 'http://localhost:3002',
+  },
+
+  http: {
+    /** See parseTrustProxy. Set per deployment: it depends on how many proxies sit in front of each service. */
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+    /** See parseCorsOrigins. In production set an explicit allow-list (or "false" if everything is same-origin). */
+    corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
+    /** True when CORS_ORIGINS wasn't set explicitly; lets services warn about the permissive default in production. */
+    corsOriginsIsDefault: !process.env.CORS_ORIGINS?.trim(),
   },
 
   apiDocs: {

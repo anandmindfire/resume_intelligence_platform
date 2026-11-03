@@ -10,6 +10,7 @@ COPY apps/insights-worker-python/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY apps/insights-worker-python/src ./src
+COPY shared-python/services/logger.py ./src/services/logger.py
 
 WORKDIR /app/src
 

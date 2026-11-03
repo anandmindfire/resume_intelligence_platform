@@ -1,6 +1,7 @@
 import React from 'react';
 import Chart from 'react-apexcharts';
 import type { ExperienceChartProps } from '../types';
+import { chartColors } from '../theme';
 
 export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height = 300 }) => {
   const options = {
@@ -27,7 +28,7 @@ export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height =
       offsetY: -20,
       style: {
         fontSize: '12px',
-        colors: ['#64748b'],
+        colors: [chartColors.axis],
         fontWeight: 600,
       },
     },
@@ -35,7 +36,7 @@ export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height =
       categories: ['Average', 'Minimum', 'Maximum'],
       labels: {
         style: {
-          colors: '#64748b',
+          colors: chartColors.axis,
           fontSize: '12px',
         },
       },
@@ -43,7 +44,7 @@ export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height =
     yaxis: {
       labels: {
         style: {
-          colors: '#64748b',
+          colors: chartColors.axis,
           fontSize: '12px',
         },
         formatter: (val: number) => `${val.toFixed(1)} yrs`,
@@ -55,16 +56,16 @@ export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height =
         shade: 'light',
         type: 'vertical',
         shadeIntensity: 0.3,
-        gradientToColors: ['#3b82f6'],
+        gradientToColors: [chartColors.blue],
         inverseColors: false,
         opacityFrom: 1,
         opacityTo: 0.8,
         stops: [0, 100],
       },
     },
-    colors: ['#3b82f6'],
+    colors: [chartColors.blue],
     grid: {
-      borderColor: '#e2e8f0',
+      borderColor: chartColors.grid,
       strokeDashArray: 3,
     },
     tooltip: {
@@ -78,20 +79,9 @@ export const ExperienceChart: React.FC<ExperienceChartProps> = ({ data, height =
   const series = [
     {
       name: 'Years of Experience',
-      data: [
-        data.avg_years || 0,
-        data.min_years || 0,
-        data.max_years || 0,
-      ],
+      data: [data.avg_years || 0, data.min_years || 0, data.max_years || 0],
     },
   ];
 
-  return (
-    <Chart
-      options={options}
-      series={series}
-      type="bar"
-      height={height}
-    />
-  );
+  return <Chart options={options} series={series} type="bar" height={height} />;
 };

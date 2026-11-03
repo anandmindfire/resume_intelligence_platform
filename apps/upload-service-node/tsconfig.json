@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "ignoreDeprecations": "6.0",
     "composite": true,
     "declaration": true,
     "declarationMap": true
@@ -13,6 +12,7 @@
   "references": [
     { "path": "../../packages/config" },
     { "path": "../../packages/logger" },
+    { "path": "../../packages/http-kit" },
     { "path": "../../packages/queue-lib" }
   ]
 }

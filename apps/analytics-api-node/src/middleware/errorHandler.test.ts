@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
-vi.mock('@resume-platform/logger', () => ({ logger: { error: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { logger } from '@resume-platform/logger';
 import { errorHandler } from './errorHandler';
@@ -26,11 +30,29 @@ describe('analytics errorHandler', () => {
     errorHandler(makeError('boom', 503), request, makeReply() as unknown as FastifyReply);
     expect(logger.error).toHaveBeenCalledWith(
       'Analytics API error',
-      expect.objectContaining({ error: 'boom', path: '/api/v1/dashboard', method: 'GET', statusCode: 503 })
+      expect.objectContaining({
+        error: 'boom',
+        path: '/api/v1/dashboard',
+        method: 'GET',
+        statusCode: 503,
+      })
     );
   });
 
-  it('hides the message outside development', () => {
+  it('passes client errors (4xx) through with their message', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const reply = makeReply();
+    errorHandler(
+      makeError('Body is not valid JSON', 400),
+      request,
+      reply as unknown as FastifyReply
+    );
+
+    expect(reply.status).toHaveBeenCalledWith(400);
+    expect(reply.send).toHaveBeenCalledWith({ error: 'Body is not valid JSON', statusCode: 400 });
+  });
+
+  it('hides the message of server errors outside development', () => {
     vi.stubEnv('NODE_ENV', 'production');
     const reply = makeReply();
     errorHandler(makeError('secret', 503), request, reply as unknown as FastifyReply);
@@ -45,6 +67,10 @@ describe('analytics errorHandler', () => {
     errorHandler(makeError('detail'), request, reply as unknown as FastifyReply);
 
     expect(reply.status).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({ error: 'Internal server error', statusCode: 500, message: 'detail' });
+    expect(reply.send).toHaveBeenCalledWith({
+      error: 'Internal server error',
+      statusCode: 500,
+      message: 'detail',
+    });
   });
 });

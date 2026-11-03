@@ -15,13 +15,13 @@ describe('StatCard', () => {
 
   it('renders the optional label and icon', () => {
     const { container } = render(
-      <StatCard title="Skills" value="7" label="Unique skills" icon={Award} variant="amber" />
+      <StatCard title="Skills" value="7" label="Unique skills" icon={Award} variant="warning" />
     );
     expect(screen.getByText('Unique skills')).toBeInTheDocument();
-    expect(container.querySelector('svg')).toHaveClass('text-amber-600');
+    expect(container.querySelector('svg')).toHaveClass('text-warning-600');
   });
 
-  it.each<StatCardVariant>(['primary', 'secondary', 'amber', 'purple', 'blue'])(
+  it.each<StatCardVariant>(['primary', 'secondary', 'warning', 'accent', 'info'])(
     'applies %s variant classes',
     (variant) => {
       const { container } = render(<StatCard title="T" value={1} variant={variant} />);
@@ -38,6 +38,6 @@ describe('StatCard', () => {
   it('renders a negative trend using the absolute value', () => {
     render(<StatCard title="T" value={1} trend={{ value: -8, isPositive: false }} />);
     expect(screen.getByText('↓')).toBeInTheDocument();
-    expect(screen.getByText('8%').parentElement).toHaveClass('text-red-600');
+    expect(screen.getByText('8%').parentElement).toHaveClass('text-danger-600');
   });
 });

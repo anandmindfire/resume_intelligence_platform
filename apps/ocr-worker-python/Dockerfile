@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY apps/ocr-worker-python/src ./src
+COPY shared-python/services/logger.py ./src/services/logger.py
 
 WORKDIR /app/src
 

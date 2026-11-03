@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
-vi.mock('@resume-platform/logger', () => ({ logger: { warn: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { warn: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import axios from 'axios';
 import { config } from '@resume-platform/config';
@@ -24,12 +28,16 @@ describe('healthService', () => {
 
     it('reports unhealthy on any other success status', async () => {
       get.mockResolvedValueOnce({ status: 204 });
-      await expect(healthService.checkServiceHealth('http://upload:3001')).resolves.toBe('unhealthy');
+      await expect(healthService.checkServiceHealth('http://upload:3001')).resolves.toBe(
+        'unhealthy'
+      );
     });
 
     it('reports unhealthy when the request fails', async () => {
       get.mockRejectedValueOnce(new Error('timeout'));
-      await expect(healthService.checkServiceHealth('http://upload:3001', 100)).resolves.toBe('unhealthy');
+      await expect(healthService.checkServiceHealth('http://upload:3001', 100)).resolves.toBe(
+        'unhealthy'
+      );
       expect(get).toHaveBeenCalledWith('http://upload:3001/health', { timeout: 100 });
     });
   });

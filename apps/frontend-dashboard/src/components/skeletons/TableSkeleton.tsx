@@ -10,10 +10,10 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({
   const allColumns = showActions ? [...columns, 'short' as const] : columns;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
       <table className="table w-full">
         <thead>
-          <tr className="bg-gray-50">
+          <tr className="bg-neutral-50">
             {allColumns.map((_, i) => (
               <th key={i} className="px-4 py-3">
                 <div className={`skeleton h-4 ${SKELETON_COLUMN_WIDTHS[allColumns[i]]}`} />
@@ -23,7 +23,7 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({
         </thead>
         <tbody>
           {Array.from({ length: rowCount }).map((_, rowIdx) => (
-            <tr key={rowIdx} className="border-t border-gray-100">
+            <tr key={rowIdx} className="border-t border-neutral-100">
               {allColumns.map((colType, colIdx) => (
                 <td key={colIdx} className="px-4 py-3">
                   {colType === 'tags' ? (

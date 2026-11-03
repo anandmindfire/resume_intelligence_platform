@@ -53,7 +53,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
+      "eslint --fix --no-warn-ignored",
       "prettier --write"
     ],
     "*.{json,md,yml,yaml}": [
@@ -64,7 +64,7 @@
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
     "@eslint/js": "^9.39.2",
-    "@types/node": "^20.10.0",
+    "@types/node": "^24.19.2",
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
     "@vitest/coverage-v8": "^3.2.4",
@@ -78,7 +78,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=24.0.0",
     "pnpm": ">=8.0.0"
   }
 }

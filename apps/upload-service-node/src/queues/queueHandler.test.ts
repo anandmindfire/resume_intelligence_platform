@@ -8,10 +8,18 @@ const { MockRedis, rpush, addJob } = vi.hoisted(() => {
 });
 
 vi.mock('ioredis', () => ({ default: MockRedis }));
-vi.mock('@resume-platform/queue-lib', () => ({ queueProducer: { addJob } }));
-vi.mock('@resume-platform/logger', () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('@resume-platform/queue-lib', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@resume-platform/queue-lib')>();
+  return { ...actual, queueProducer: { addJob } };
+});
+vi.mock('@resume-platform/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { config } from '@resume-platform/config';
+import { QUEUE_NAMES, JOB_NAMES } from '@resume-platform/queue-lib';
 import { QueueHandler, queueHandler } from './queueHandler';
 
 // The client is created once at module load; capture its options before mocks are cleared.
@@ -38,8 +46,8 @@ describe('QueueHandler', () => {
     it('adds the job to BullMQ and to the Redis list consumed by the Python OCR worker', async () => {
       await queueHandler.queueOCRJob(ocrJob);
 
-      expect(addJob).toHaveBeenCalledWith('ocr-queue', 'process-ocr', ocrJob);
-      expect(rpush).toHaveBeenCalledWith('ocr-queue', JSON.stringify(ocrJob));
+      expect(addJob).toHaveBeenCalledWith(QUEUE_NAMES.OCR, JOB_NAMES.PROCESS_OCR, ocrJob);
+      expect(rpush).toHaveBeenCalledWith(QUEUE_NAMES.OCR, JSON.stringify(ocrJob));
     });
 
     it('only forwards the OCR fields', async () => {
@@ -66,7 +74,7 @@ describe('QueueHandler', () => {
     it('adds the job to BullMQ and the parser Redis list', async () => {
       await queueHandler.queueParserJob('r-1', 'extracted text');
 
-      expect(addJob).toHaveBeenCalledWith('parser-queue', 'process-parser', {
+      expect(addJob).toHaveBeenCalledWith(QUEUE_NAMES.PARSER, JOB_NAMES.PROCESS_PARSER, {
         resumeId: 'r-1',
         extractedText: 'extracted text',
         filePath: '',
@@ -74,7 +82,7 @@ describe('QueueHandler', () => {
         mimeType: '',
       });
       expect(rpush).toHaveBeenCalledWith(
-        'parser-queue',
+        QUEUE_NAMES.PARSER,
         JSON.stringify({ resumeId: 'r-1', extractedText: 'extracted text' })
       );
     });
@@ -89,7 +97,7 @@ describe('QueueHandler', () => {
     it('adds the job to BullMQ only', async () => {
       await queueHandler.queueMatcherJob('r-1');
 
-      expect(addJob).toHaveBeenCalledWith('matcher-queue', 'process-match', {
+      expect(addJob).toHaveBeenCalledWith(QUEUE_NAMES.MATCHER, JOB_NAMES.PROCESS_MATCH, {
         resumeId: 'r-1',
         filePath: '',
         fileName: '',
