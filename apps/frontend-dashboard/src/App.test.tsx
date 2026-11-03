@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./pages/Analytics', () => ({ Analytics: () => <div>Analytics page</div> }));
@@ -21,21 +21,23 @@ describe('App routing', () => {
     ['/upload', 'Upload page'],
     ['/resumes', 'Resumes page'],
     ['/jobs', 'Jobs page'],
-  ])('renders the page for %s inside the layout', (path, text) => {
+  ])('renders the page for %s inside the layout', async (path, text) => {
     renderAt(path);
-    expect(screen.getByText(text)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(text)).toBeInTheDocument());
     expect(screen.getByRole('heading', { name: 'Resume Intelligence' })).toBeInTheDocument();
   });
 
-  it('redirects /analytics to /', () => {
+  it('redirects /analytics to /', async () => {
     renderAt('/analytics');
-    expect(screen.getByText('Analytics page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Analytics page')).toBeInTheDocument());
     expect(window.location.pathname).toBe('/');
   });
 
-  it('renders only the layout for unknown routes', () => {
+  it('renders only the layout for unknown routes', async () => {
     renderAt('/nope');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Resume Intelligence' })).toBeInTheDocument()
+    );
     expect(screen.queryByText(/page$/)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Resume Intelligence' })).toBeInTheDocument();
   });
 });

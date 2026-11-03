@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import winston from 'winston';
-import { createLogger, logger } from './index';
+import { createLogger, getErrorMessage, getErrorStack, logger } from './index';
 
 const MESSAGE = Symbol.for('message');
 const LEVEL = Symbol.for('level');
@@ -37,7 +37,12 @@ describe('createLogger', () => {
     const line = render(log, { level: 'info', message: 'hello', service: 'svc', resumeId: 'r1' });
     const parsed = JSON.parse(line);
 
-    expect(parsed).toMatchObject({ level: 'info', message: 'hello', service: 'svc', resumeId: 'r1' });
+    expect(parsed).toMatchObject({
+      level: 'info',
+      message: 'hello',
+      service: 'svc',
+      resumeId: 'r1',
+    });
     expect(new Date(parsed.timestamp).toString()).not.toBe('Invalid Date');
   });
 
@@ -90,5 +95,33 @@ describe('default logger', () => {
   it('is a winston logger instance', () => {
     expect(typeof logger.info).toBe('function');
     expect(typeof logger.error).toBe('function');
+  });
+});
+
+describe('getErrorMessage', () => {
+  it('returns the message of Error instances, including subclasses', () => {
+    expect(getErrorMessage(new Error('boom'))).toBe('boom');
+    expect(getErrorMessage(new TypeError('bad type'))).toBe('bad type');
+  });
+
+  it.each([
+    ['a string', 'plain failure', 'plain failure'],
+    ['a number', 42, '42'],
+    ['null', null, 'null'],
+    ['undefined', undefined, 'undefined'],
+  ])('stringifies %s thrown values', (_label, value, expected) => {
+    expect(getErrorMessage(value)).toBe(expected);
+  });
+});
+
+describe('getErrorStack', () => {
+  it('returns the stack of Error instances', () => {
+    const error = new Error('boom');
+    expect(getErrorStack(error)).toBe(error.stack);
+  });
+
+  it('returns undefined for non-errors', () => {
+    expect(getErrorStack('nope')).toBeUndefined();
+    expect(getErrorStack({ stack: 'fake' })).toBeUndefined();
   });
 });

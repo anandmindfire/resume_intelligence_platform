@@ -2,6 +2,8 @@
 import re
 from typing import List, Dict, Any
 
+from utils.text_utils import strip_bullet
+
 def extract_achievements(text: str) -> List[Dict[str, Any]]:
     """Extract achievements, awards, and certifications"""
     if not text:
@@ -31,6 +33,7 @@ def extract_achievements(text: str) -> List[Dict[str, Any]]:
         if in_section and any(keyword in line_lower for keyword in ['experience', 'education', 'projects', 'skills']):
             if current_achievement:
                 achievements.append(current_achievement)
+            current_achievement = {}  # already saved; don't add it again after the loop
             break
         
         if in_section:
@@ -38,12 +41,13 @@ def extract_achievements(text: str) -> List[Dict[str, Any]]:
             if _is_achievement_entry(line_stripped):
                 if current_achievement:
                     achievements.append(current_achievement)
+                title = strip_bullet(line_stripped)
                 current_achievement = {
-                    'title': line_stripped,
+                    'title': title,
                     'description': '',
                     'date': None,
                     'issuer': None,
-                    'type': _classify_achievement_type(line_stripped),
+                    'type': _classify_achievement_type(title),
                 }
             # Date
             elif current_achievement and _contains_date(line_stripped) and not current_achievement.get('date'):

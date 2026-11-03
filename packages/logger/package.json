@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist *.tsbuildinfo",
     "type-check": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
@@ -17,7 +18,7 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^24.19.2",
     "typescript": "^5.3.2"
   }
 }

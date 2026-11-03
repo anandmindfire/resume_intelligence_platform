@@ -1,8 +1,21 @@
 import { Pool } from 'pg';
 import { config } from '@resume-platform/config';
-import { logger } from '@resume-platform/logger';
 import { ResumeExportRecord } from '../types';
 import { DB_POOL } from '../constants';
+
+/** A resumes row as selected by the export queries; parsed columns are nullable in Postgres. */
+interface ResumeExportRow {
+  id: string;
+  file_name: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  skills: string[] | null;
+  experience: unknown[] | null;
+  education: unknown[] | null;
+  status: string | null;
+  created_at: string | null;
+}
 import { GET_RESUMES_FOR_EXPORT_ALL, GET_RESUMES_BY_IDS } from '../queries';
 
 const pool = new Pool({
@@ -21,9 +34,9 @@ class DbService {
       const query =
         resumeIds && resumeIds.length > 0 ? GET_RESUMES_BY_IDS : GET_RESUMES_FOR_EXPORT_ALL;
       const params = resumeIds && resumeIds.length > 0 ? [resumeIds] : [];
-      const result = await client.query(query, params);
+      const result = await client.query<ResumeExportRow>(query, params);
 
-      return result.rows.map((resume: any) => ({
+      return result.rows.map((resume) => ({
         id: resume.id,
         file_name: resume.file_name || '',
         name: resume.name || '',

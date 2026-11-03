@@ -68,10 +68,22 @@ describe('ResumeExtractor.extract', () => {
     expect(first.graduationDate).toMatch(/^2015-06/);
   });
 
-  // BUG: the section-header regex (/education|academic|university|college|degree/i) also matches
-  // "Stanford University", so the line is treated as a header and the institution is never captured.
-  it.fails('extracts an institution whose name contains "University"', () => {
+  it('extracts an institution whose name contains "University"', () => {
     expect(result.education[0].institution).toBe('Stanford University');
+  });
+
+  it.each(['Education', 'EDUCATION:', 'Academic Background', 'Qualifications'])(
+    'recognises "%s" as the start of the education section',
+    (heading) => {
+      const { education } = ResumeExtractor.extract(`${heading}\nBachelor of Arts\nOxford University`);
+      expect(education[0]).toMatchObject({ degree: 'Bachelor of Arts', institution: 'Oxford University' });
+    }
+  );
+
+  it('does not treat institution or degree lines as section headings', () => {
+    // No heading at all: nothing after "University of Texas" should be read as an education section.
+    const { education } = ResumeExtractor.extract('University of Texas\nBachelor of Science');
+    expect(education).toEqual([]);
   });
 
   it('extracts an institution whose name contains "Institute"', () => {

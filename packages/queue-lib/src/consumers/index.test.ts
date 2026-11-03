@@ -10,27 +10,31 @@ const { MockWorker, workerInstances } = vi.hoisted(() => {
     handlers: Record<string, (...args: unknown[]) => void>;
     close: ReturnType<typeof vi.fn>;
   }> = [];
-  const MockWorker = vi.fn().mockImplementation((name: string, processor: Processor, opts: Record<string, unknown>) => {
-    const instance = {
-      name,
-      processor,
-      opts,
-      handlers: {} as Record<string, (...args: unknown[]) => void>,
-      close: vi.fn().mockResolvedValue(undefined),
-      on(event: string, handler: (...args: unknown[]) => void) {
-        instance.handlers[event] = handler;
-        return instance;
-      },
-    };
-    workerInstances.push(instance);
-    return instance;
-  });
+  const MockWorker = vi
+    .fn()
+    .mockImplementation((name: string, processor: Processor, opts: Record<string, unknown>) => {
+      const instance = {
+        name,
+        processor,
+        opts,
+        handlers: {} as Record<string, (...args: unknown[]) => void>,
+        close: vi.fn().mockResolvedValue(undefined),
+        on(event: string, handler: (...args: unknown[]) => void) {
+          instance.handlers[event] = handler;
+          return instance;
+        },
+      };
+      workerInstances.push(instance);
+      return instance;
+    });
   return { MockWorker, workerInstances };
 });
 
 vi.mock('bullmq', () => ({ Worker: MockWorker }));
 vi.mock('@resume-platform/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
 }));
 
 import { config } from '@resume-platform/config';
@@ -100,6 +104,17 @@ describe('QueueConsumer', () => {
     expect(logger.error).toHaveBeenCalledWith(
       'Job 42 failed',
       expect.objectContaining({ jobId: '42', resumeId: 'resume-1', error: 'parse failed' })
+    );
+  });
+
+  it('logs non-Error rejections as strings without a stack', async () => {
+    const consumer = new QueueConsumer();
+    consumer.createWorker('matcher-queue', vi.fn().mockRejectedValue('plain string failure'));
+
+    await expect(workerInstances[0].processor(job)).rejects.toBe('plain string failure');
+    expect(logger.error).toHaveBeenCalledWith(
+      'Job 42 failed',
+      expect.objectContaining({ error: 'plain string failure', stack: undefined })
     );
   });
 

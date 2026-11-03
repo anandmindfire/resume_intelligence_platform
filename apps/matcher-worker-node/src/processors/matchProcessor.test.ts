@@ -13,19 +13,33 @@ vi.mock('../services/dbService', () => ({
 vi.mock('../queues/queueHandler', () => ({
   queueHandler: { triggerInsightsAggregation: vi.fn() },
 }));
-vi.mock('@resume-platform/logger', () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { RoleMatcher, type JobRole } from '@resume-platform/role-matching';
+import { RESUME_STATUS } from '../constants';
 import { processMatchJob } from './matchProcessor';
 import { dbService } from '../services/dbService';
 import { queueHandler } from '../queues/queueHandler';
 
 const db = vi.mocked(dbService);
 
-const job = { data: { resumeId: 'r-1', filePath: '', fileName: '', mimeType: '' } } as Job<QueueJobData>;
+const job = {
+  data: { resumeId: 'r-1', filePath: '', fileName: '', mimeType: '' },
+} as Job<QueueJobData>;
 
 const roles: JobRole[] = [
-  { id: 'j1', title: 'Go Dev', requiredSkills: ['Go'], preferredSkills: [], keywords: ['grpc'], requiredExperience: 2 },
+  {
+    id: 'j1',
+    title: 'Go Dev',
+    requiredSkills: ['Go'],
+    preferredSkills: [],
+    keywords: ['grpc'],
+    requiredExperience: 2,
+  },
   { id: 'j2', title: 'Designer', requiredSkills: ['Figma'], preferredSkills: [], keywords: [] },
 ];
 
@@ -46,11 +60,15 @@ describe('processMatchJob', () => {
     expect(result.status).toBe('completed');
     expect(result.resumeId).toBe('r-1');
     expect(result.matches.map((m) => m.roleId)).toEqual(['j1', 'j2']);
-    expect(result.matches[0]).toMatchObject({ matchedSkills: ['Go'], missingSkills: [], experienceMatch: true });
+    expect(result.matches[0]).toMatchObject({
+      matchedSkills: ['Go'],
+      missingSkills: [],
+      experienceMatch: true,
+    });
     expect(result.matches[1]).toMatchObject({ missingSkills: ['Figma'] });
 
     expect(db.saveMatches).toHaveBeenCalledWith('r-1', result.matches);
-    expect(db.updateResumeStatus).toHaveBeenCalledWith('r-1', 'matched');
+    expect(db.updateResumeStatus).toHaveBeenCalledWith('r-1', RESUME_STATUS.MATCHED);
     expect(queueHandler.triggerInsightsAggregation).toHaveBeenCalledWith('r-1');
   });
 
@@ -62,7 +80,15 @@ describe('processMatchJob', () => {
     await processMatchJob(job);
 
     expect(spy).toHaveBeenCalledWith(
-      { name: undefined, email: undefined, phone: undefined, skills: [], experience: [], education: [], rawText: '' },
+      {
+        name: undefined,
+        email: undefined,
+        phone: undefined,
+        skills: [],
+        experience: [],
+        education: [],
+        rawText: '',
+      },
       roles[0]
     );
     spy.mockRestore();

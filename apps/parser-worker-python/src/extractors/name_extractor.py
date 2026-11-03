@@ -97,6 +97,10 @@ def _is_not_name(line: str) -> bool:
     """Check if line is definitely not a name"""
     line_lower = line.lower()
     
+    # Document titles ("Resume", "Curriculum Vitae", "CV")
+    if re.match(r'^(curriculum vitae|r[eé]sum[eé]|cv)\b', line_lower):
+        return True
+
     # Contains email
     if '@' in line or re.search(r'[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}', line_lower):
         return True

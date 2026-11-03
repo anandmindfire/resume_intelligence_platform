@@ -52,6 +52,7 @@ class DBService:
     def save_parsed_data(self, resume_id: str, parsed_data: Dict[str, Any]) -> None:
         """Save parsed resume data to database"""
         conn = None
+        cursor = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -95,13 +96,17 @@ class DBService:
             logger.error(f"Failed to save parsed data for resume {resume_id}: {e}")
             raise
         finally:
-            if conn:
-                cursor.close()
-                self._return_connection(conn)
+            try:
+                if cursor:
+                    cursor.close()
+            finally:
+                if conn:
+                    self._return_connection(conn)
 
     def update_resume_status(self, resume_id: str, status: str) -> None:
         """Update resume status"""
         conn = None
+        cursor = None
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -117,9 +122,12 @@ class DBService:
             logger.error(f"Failed to update resume status: {e}")
             raise
         finally:
-            if conn:
-                cursor.close()
-                self._return_connection(conn)
+            try:
+                if cursor:
+                    cursor.close()
+            finally:
+                if conn:
+                    self._return_connection(conn)
 
     @classmethod
     def close_pool(cls):

@@ -20,12 +20,6 @@ def test_extract_email(text, expected):
     assert extract_email(text) == expected
 
 
-@pytest.mark.xfail(
-    reason="BUG: contact_extractor.py:10 uses TLD class [A-Z|a-z] which contains a literal '|', so in "
-    "pipe-separated header lines without spaces the delimiter and following word are swallowed into "
-    "the email (e.g. 'jane@acme.org|Phone' -> 'jane@acme.org|Phone').",
-    strict=True,
-)
 def test_email_does_not_swallow_pipe_delimiter():
     assert extract_email("jane@acme.org|Phone: 555") == "jane@acme.org"
 
@@ -67,12 +61,6 @@ def test_extract_phone_none(text):
     assert extract_phone(text) is None
 
 
-@pytest.mark.xfail(
-    reason="BUG: contact_extractor.py:64 rejects any >=10-digit number whose LAST 4 digits look like a "
-    "year (19xx/20xx), intending to skip dates. A 10-digit number can never be a year, so valid "
-    "unlabeled phones like 415-555-2001 are silently dropped.",
-    strict=True,
-)
 def test_unlabeled_phone_ending_in_year_like_digits():
     assert extract_phone("Jane Doe | 415-555-2001 | jane@x.com") == "4155552001"
 
@@ -83,3 +71,8 @@ def test_extract_contact_info_combines_both(sample_resume):
 
 def test_extract_contact_info_empty():
     assert extract_contact_info("") == {"email": None, "phone": None}
+
+
+@pytest.mark.parametrize("text", ["2015 2019 2021 2023", "2015-2019-2020-2021"])
+def test_run_of_years_is_not_a_phone(text):
+    assert extract_phone(text) is None

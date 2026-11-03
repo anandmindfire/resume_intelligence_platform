@@ -1,53 +1,32 @@
+const tokens = require('./src/theme/tokens.json');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
+    // The palette is replaced, not extended: Tailwind's default colors (gray, red, blue, ...) are
+    // deliberately unavailable. Every color comes from src/theme/tokens.json, the single source of
+    // truth shared with the charts (see src/theme/index.ts).
+    colors: {
+      transparent: 'transparent',
+      current: 'currentColor',
+      inherit: 'inherit',
+      ...tokens.base,
+      ...tokens.colors,
+    },
     extend: {
-      colors: {
-        primary: {
-          50: '#fff1f0',
-          100: '#ffdfde',
-          200: '#ffc4c2',
-          300: '#ff9c99',
-          400: '#ff615c',
-          500: '#ff2d26',
-          600: '#ff0100',
-          700: '#d90100',
-          800: '#b30100',
-          900: '#940504',
-          950: '#520100',
-        },
-        secondary: {
-          50: '#f6f6f7',
-          100: '#e8e9eb',
-          200: '#d0d1d5',
-          300: '#a8abb3',
-          400: '#7a7e88',
-          500: '#5a5e68',
-          600: '#3a3d42',
-          700: '#34373b',
-          800: '#2d2f33',
-          900: '#292b2e',
-          950: '#1a1b1d',
-        },
-        brand: {
-          text: {
-            primary: '#212529',
-            secondary: '#6C757D',
-          }
-        },
-      },
+      // Tailwind's built-in defaults for these reference the removed gray/blue palettes.
+      borderColor: { DEFAULT: tokens.colors.neutral[200] },
+      divideColor: { DEFAULT: tokens.colors.neutral[200] },
+      ringColor: { DEFAULT: tokens.colors.primary[500] },
       fontFamily: {
         sans: ['"Open Sans"', 'Roboto', 'system-ui', 'sans-serif'],
         display: ['Poppins', 'Montserrat', 'sans-serif'],
       },
       boxShadow: {
-        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-        'medium': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'large': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        soft: '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+        medium: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        large: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
       },
       keyframes: {
         fadeIn: {
@@ -73,4 +52,4 @@ module.exports = {
     },
   },
   plugins: [],
-}
+};

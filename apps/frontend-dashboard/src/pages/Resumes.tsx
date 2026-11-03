@@ -44,7 +44,6 @@ export const Resumes: React.FC = () => {
       page: 1,
     });
     setSelectedRoleId('');
-    setTimeout(applyFilters, 100);
   };
 
   const handleExport = async () => {
@@ -72,17 +71,17 @@ export const Resumes: React.FC = () => {
   if (error) {
     return (
       <Card>
-        <div className="text-center py-8">
-          <p className="text-red-600 text-lg font-semibold mb-2">
-            {COPY.ERRORS.LOAD_RESUMES}
-          </p>
-          <p className="text-gray-500">{error}</p>
+        <div className="text-center py-8" role="alert">
+          <p className="text-danger-600 text-lg font-semibold mb-2">{COPY.ERRORS.LOAD_RESUMES}</p>
+          <p className="text-neutral-500">{error}</p>
         </div>
       </Card>
     );
   }
 
-  const hasActiveFilters = Object.values(filters).some((v) => v && v !== 0);
+  const hasActiveFilters = Boolean(
+    filters.keyword || filters.location || filters.roleId || (filters.minScore ?? 0) > 0
+  );
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -94,28 +93,25 @@ export const Resumes: React.FC = () => {
           <p className="text-white/90 text-xl">{COPY.PAGES.RESUMES.SUBTITLE}</p>
         </div>
         {total > 0 && (
-          <button
-            className="btn btn-success shadow-lg hover:shadow-xl"
-            onClick={handleExport}
-          >
+          <button className="btn btn-success shadow-lg hover:shadow-xl" onClick={handleExport}>
             <Download className="w-5 h-5" />
             {COPY.LABELS.EXPORT_CSV}
           </button>
         )}
       </div>
 
-      <Card
-        title={COPY.LABELS.FILTERS}
-        description={COPY.LABELS.REFINE_SEARCH}
-        className="mb-6"
-      >
+      <Card title={COPY.LABELS.FILTERS} description={COPY.LABELS.REFINE_SEARCH} className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="resume-search-keyword"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               <Search className="w-4 h-4 inline mr-1" />
               {COPY.LABELS.SEARCH_KEYWORD}
             </label>
             <input
+              id="resume-search-keyword"
               type="text"
               className="input"
               placeholder={COPY.LABELS.SEARCH_PLACEHOLDER}
@@ -124,10 +120,14 @@ export const Resumes: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="resume-location"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               {COPY.LABELS.LOCATION}
             </label>
             <input
+              id="resume-location"
               type="text"
               className="input"
               placeholder={COPY.LABELS.LOCATION_PLACEHOLDER}
@@ -136,10 +136,14 @@ export const Resumes: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="resume-job-role"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               {COPY.LABELS.JOB_ROLE}
             </label>
             <select
+              id="resume-job-role"
               className="input"
               value={selectedRoleId}
               onChange={(e) => {
@@ -156,19 +160,21 @@ export const Resumes: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label
+              htmlFor="resume-min-score"
+              className="block text-sm font-semibold text-neutral-700 mb-2"
+            >
               {COPY.LABELS.MIN_MATCH_SCORE}
             </label>
             <input
+              id="resume-min-score"
               type="number"
               className="input"
               placeholder="0"
               min={0}
               max={100}
               value={filters.minScore ?? 0}
-              onChange={(e) =>
-                handleFilterChange('minScore', parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => handleFilterChange('minScore', parseFloat(e.target.value) || 0)}
             />
           </div>
         </div>
@@ -189,63 +195,71 @@ export const Resumes: React.FC = () => {
 
       <Card
         title={COPY.LABELS.RESUME_LIST}
-        description={loading && resumes.length === 0 ? 'Loading...' : COPY.LABELS.RESUMES_FOUND(total)}
+        description={
+          loading && resumes.length === 0 ? 'Loading...' : COPY.LABELS.RESUMES_FOUND(total)
+        }
       >
-        {loading && resumes.length === 0 ? (
-          <TableSkeleton variant="resumes" rowCount={10} />
-        ) : resumes.length > 0 ? (
-          <>
-            <div className="mb-4 flex flex-wrap gap-2 items-center">
-              <label className="text-sm font-medium text-gray-700">Sort by:</label>
-              <select
-                className="input py-1.5 px-3 text-sm w-40"
-                value={`${filters.sortBy ?? 'created_at'}-${filters.sortOrder ?? 'desc'}`}
-                onChange={(e) => {
-                  const [sortBy, sortOrder] = e.target.value.split('-') as [string, 'asc' | 'desc'];
-                  setSort(sortBy, sortOrder);
-                }}
+        <div aria-live="polite" aria-busy={loading}>
+          {loading && resumes.length === 0 ? (
+            <TableSkeleton variant="resumes" rowCount={10} />
+          ) : resumes.length > 0 ? (
+            <>
+              <div className="mb-4 flex flex-wrap gap-2 items-center">
+                <label htmlFor="resume-sort" className="text-sm font-medium text-neutral-700">
+                  Sort by:
+                </label>
+                <select
+                  id="resume-sort"
+                  className="input py-1.5 px-3 text-sm w-40"
+                  value={`${filters.sortBy ?? 'created_at'}-${filters.sortOrder ?? 'desc'}`}
+                  onChange={(e) => {
+                    const [sortBy, sortOrder] = e.target.value.split('-') as [
+                      string,
+                      'asc' | 'desc',
+                    ];
+                    setSort(sortBy, sortOrder);
+                  }}
+                >
+                  <option value="created_at-desc">Newest first</option>
+                  <option value="created_at-asc">Oldest first</option>
+                  <option value="name-asc">Name (A-Z)</option>
+                  <option value="name-desc">Name (Z-A)</option>
+                  <option value="file_name-asc">File name (A-Z)</option>
+                  <option value="file_name-desc">File name (Z-A)</option>
+                  <option value="status-asc">Status (A-Z)</option>
+                </select>
+              </div>
+              <div
+                className={`relative transition-opacity duration-200 ${loading ? 'opacity-60' : 'opacity-100'}`}
               >
-                <option value="created_at-desc">Newest first</option>
-                <option value="created_at-asc">Oldest first</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="file_name-asc">File name (A-Z)</option>
-                <option value="file_name-desc">File name (Z-A)</option>
-                <option value="status-asc">Status (A-Z)</option>
-              </select>
-            </div>
-            <div className={`relative transition-opacity duration-200 ${loading ? 'opacity-60' : 'opacity-100'}`}>
-              <ResumeTable
-                resumes={resumes}
-                onRowClick={setSelectedResume}
-                onDelete={handleDeleteResume}
-                getResumeFileUrl={resumeService.getResumeFileUrl}
-              />
-            </div>
-            {totalPages > 1 && (
-              <Pagination
-                page={filters.page ?? 1}
-                totalPages={totalPages}
-                total={total}
-                limit={filters.limit ?? 10}
-                onPageChange={setPage}
-                onPageSizeChange={setPageSize}
-                pageSizeOptions={[5, 10, 20, 50]}
-                showPageSize={true}
-              />
-            )}
-          </>
-        ) : (
-          <EmptyState
-            icon="📄"
-            title={COPY.EMPTY.NO_RESUMES}
-            message={
-              hasActiveFilters
-                ? COPY.EMPTY.TRY_FILTERS
-                : COPY.EMPTY.UPLOAD_TO_START
-            }
-          />
-        )}
+                <ResumeTable
+                  resumes={resumes}
+                  onRowClick={setSelectedResume}
+                  onDelete={handleDeleteResume}
+                  getResumeFileUrl={resumeService.getResumeFileUrl}
+                />
+              </div>
+              {totalPages > 1 && (
+                <Pagination
+                  page={filters.page ?? 1}
+                  totalPages={totalPages}
+                  total={total}
+                  limit={filters.limit ?? 10}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                  showPageSize={true}
+                />
+              )}
+            </>
+          ) : (
+            <EmptyState
+              icon="📄"
+              title={COPY.EMPTY.NO_RESUMES}
+              message={hasActiveFilters ? COPY.EMPTY.TRY_FILTERS : COPY.EMPTY.UPLOAD_TO_START}
+            />
+          )}
+        </div>
       </Card>
 
       <ResumeDetailModal

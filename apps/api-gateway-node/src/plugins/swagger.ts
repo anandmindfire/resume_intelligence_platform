@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { docsSources, gatewayRoutes } from '../config/gatewayConfig';
+import { API_VERSION } from '../constants';
 
 export const DOCS_ROUTE_PREFIX = '/docs';
 
@@ -22,7 +23,7 @@ export async function registerSwagger(app: FastifyInstance) {
           'Single entry point for the platform. Proxies /api/upload/* to the upload service and ' +
           '/api/analytics/*, /api/jobs/* and /api/resumes/* to the analytics API. ' +
           'Use the "Select a definition" menu to browse those APIs with gateway paths.',
-        version: '1.0.0',
+        version: API_VERSION,
       },
       tags: [
         { name: 'Gateway', description: 'API discovery' },
@@ -31,7 +32,9 @@ export async function registerSwagger(app: FastifyInstance) {
     },
     // Proxied wildcard routes are documented by the upstream specs, not here.
     transform: ({ schema, url }) => ({
-      schema: proxiedPrefixes.some((prefix) => url.startsWith(prefix)) ? { ...schema, hide: true } : schema,
+      schema: proxiedPrefixes.some((prefix) => url.startsWith(prefix))
+        ? { ...schema, hide: true }
+        : schema,
       url,
     }),
   });

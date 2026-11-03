@@ -37,8 +37,8 @@ export const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200">
-      <div className="flex items-center gap-4 text-sm text-gray-600">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-neutral-200">
+      <div className="flex items-center gap-4 text-sm text-neutral-600">
         <span>
           Showing {startItem}-{endItem} of {total}
         </span>
@@ -65,13 +65,14 @@ export const Pagination: React.FC<PaginationProps> = ({
           className="btn btn-secondary py-2 px-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
+          aria-label="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-1">
           {getPageNumbers().map((p, i) =>
             p === '...' ? (
-              <span key={`ellipsis-${i}`} className="px-2 text-gray-500">
+              <span key={`ellipsis-${i}`} className="px-2 text-neutral-500">
                 ...
               </span>
             ) : (
@@ -80,7 +81,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                 className={`min-w-[2rem] py-2 px-3 text-sm rounded-lg transition-colors ${
                   page === p
                     ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
                 }`}
                 onClick={() => onPageChange(p as number)}
               >
@@ -93,6 +94,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           className="btn btn-secondary py-2 px-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
+          aria-label="Next page"
         >
           <ChevronRight className="w-4 h-4" />
         </button>

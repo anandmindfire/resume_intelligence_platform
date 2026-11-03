@@ -54,6 +54,14 @@ def remove_urls(text: str) -> str:
     url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.sub(url_pattern, '', text)
 
+MONTH_NAMES_PATTERN = r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?'
+
+
+def strip_bullet(line: str) -> str:
+    """Remove a leading bullet / list number ("- ", "1. ", "2) ", "▸ ")."""
+    return re.sub(r'^(?:[•\-\*\+▪▫▸▹→]\s*)?(?:\d+[\.\)]\s*)?', '', line).strip()
+
+
 def extract_bullet_points(text: str) -> List[str]:
     """Extract bullet points from text"""
     bullet_patterns = [

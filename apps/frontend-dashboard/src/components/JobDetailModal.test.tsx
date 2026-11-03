@@ -24,7 +24,9 @@ describe('JobDetailModal', () => {
 
   it('renders job header and summary info', () => {
     renderModal();
-    expect(screen.getByRole('heading', { level: 2, name: 'Frontend Developer' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Frontend Developer' })
+    ).toBeInTheDocument();
     expect(screen.getByText('Web • JOB-1')).toBeInTheDocument();
     expect(screen.getByText('Remote')).toBeInTheDocument();
     expect(screen.getByText('2+ years')).toBeInTheDocument();
@@ -32,22 +34,22 @@ describe('JobDetailModal', () => {
   });
 
   it('shows the overall match score with colour coding', () => {
-    renderModal({ matchDetail: makeMatchDetail({ matchScore: 0.8 }) });
+    renderModal({ matchDetail: makeMatchDetail({ matchScore: 80 }) });
     expect(screen.getByText(COPY.LABELS.OVERALL_MATCH_SCORE)).toBeInTheDocument();
-    expect(screen.getByText('80%')).toHaveClass('text-green-600');
+    expect(screen.getByText('80%')).toHaveClass('text-success-600');
   });
 
   it.each([
-    [0.55, 'text-yellow-600', 'bg-yellow-500'],
-    [0.2, 'text-gray-400', 'bg-gray-400'],
+    [55, 'text-warning-600', 'bg-warning-500'],
+    [20, 'text-neutral-400', 'bg-neutral-400'],
   ])('colours score %s with %s', (score, textClass, barClass) => {
     const { container } = renderModal({
       matchDetail: makeMatchDetail({ matchScore: score, matchedResumes: [] }),
     });
-    const label = `${Math.round(score * 100)}%`;
+    const label = `${Math.round(score)}%`;
     expect(screen.getByText(label)).toHaveClass(textClass);
     const bar = container.querySelector(`.h-3.${barClass}`) as HTMLElement;
-    expect(bar.style.width).toBe(`${score * 100}%`);
+    expect(bar.style.width).toBe(`${score}%`);
   });
 
   it('shows requirement satisfaction from the match detail', () => {
@@ -55,15 +57,19 @@ describe('JobDetailModal', () => {
       matchDetail: makeMatchDetail({ requirementsMet: 3, requirementsTotal: 4 }),
     });
     expect(screen.getByText('3 of 4 requirements met (75%)')).toBeInTheDocument();
-    expect((container.querySelector('.h-2.bg-green-500') as HTMLElement).style.width).toBe('75%');
+    expect((container.querySelector('.h-2.bg-success-500') as HTMLElement).style.width).toBe('75%');
   });
 
   it('uses medium / low colours for requirement satisfaction', () => {
-    const medium = renderModal({ matchDetail: makeMatchDetail({ requirementsMet: 1, requirementsTotal: 2 }) });
-    expect(medium.container.querySelector('.h-2.bg-yellow-500')).not.toBeNull();
+    const medium = renderModal({
+      matchDetail: makeMatchDetail({ requirementsMet: 1, requirementsTotal: 2 }),
+    });
+    expect(medium.container.querySelector('.h-2.bg-warning-500')).not.toBeNull();
     medium.unmount();
-    const low = renderModal({ matchDetail: makeMatchDetail({ requirementsMet: 1, requirementsTotal: 4 }) });
-    expect(low.container.querySelector('.h-2.bg-red-500')).not.toBeNull();
+    const low = renderModal({
+      matchDetail: makeMatchDetail({ requirementsMet: 1, requirementsTotal: 4 }),
+    });
+    expect(low.container.querySelector('.h-2.bg-danger-500')).not.toBeNull();
   });
 
   it('falls back to skills+1 requirements and hides score without match detail', () => {
@@ -82,46 +88,51 @@ describe('JobDetailModal', () => {
   it('marks required skills matched case-insensitively by any matched resume', () => {
     const { container } = renderModal();
     // fixture: resumes matched "react" and "TypeScript"; job requires React, TypeScript, CSS
-    const skillRow = (name: string) => screen.getByText(name, { selector: 'span.text-green-900, span.text-red-900' }).parentElement;
-    expect(skillRow('React')).toHaveClass('bg-green-50');
-    expect(skillRow('TypeScript')).toHaveClass('bg-green-50');
-    expect(skillRow('CSS')).toHaveClass('bg-red-50');
-    expect(container.querySelectorAll('.bg-green-50')).toHaveLength(2);
+    const skillRow = (name: string) =>
+      screen.getByText(name, { selector: 'span.text-success-900, span.text-danger-900' })
+        .parentElement;
+    expect(skillRow('React')).toHaveClass('bg-success-50');
+    expect(skillRow('TypeScript')).toHaveClass('bg-success-50');
+    expect(skillRow('CSS')).toHaveClass('bg-danger-50');
+    expect(container.querySelectorAll('.bg-success-50')).toHaveLength(2);
   });
 
   it('marks all skills unmatched without matched resumes', () => {
-    const { container } = renderModal({ matchDetail: makeMatchDetail({ matchedResumes: undefined }) });
-    expect(container.querySelectorAll('.bg-red-50')).toHaveLength(3);
+    const { container } = renderModal({
+      matchDetail: makeMatchDetail({ matchedResumes: undefined }),
+    });
+    expect(container.querySelectorAll('.bg-danger-50')).toHaveLength(3);
     expect(screen.getByText('0 resumes')).toBeInTheDocument();
   });
 
   it('lists matched resumes sorted by score descending', () => {
     renderModal();
     expect(screen.getByText(`${COPY.LABELS.MATCHED_RESUMES} (2)`)).toBeInTheDocument();
-    const names = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent).filter(
-      (t) => t === 'Jane Doe' || t === 'John Roe'
-    );
+    const names = screen
+      .getAllByRole('heading', { level: 4 })
+      .map((h) => h.textContent)
+      .filter((t) => t === 'Jane Doe' || t === 'John Roe');
     expect(names).toEqual(['John Roe', 'Jane Doe']);
-    expect(screen.getByText('90%')).toHaveClass('text-green-600');
-    expect(screen.getByText('60%')).toHaveClass('text-yellow-600');
+    expect(screen.getByText('90%')).toHaveClass('text-success-600');
+    expect(screen.getByText('60%')).toHaveClass('text-warning-600');
   });
 
   it('shows a singular resume count, low score colour and +N skills for a matched resume', () => {
     renderModal({
       matchDetail: makeMatchDetail({
-        matchScore: 0.1,
+        matchScore: 10,
         matchedResumes: [
           {
             resumeId: 'r-3',
             resumeName: 'Solo',
-            matchScore: 0.3,
+            matchScore: 30,
             skillsMatched: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
           },
         ],
       }),
     });
     expect(screen.getByText('1 resume')).toBeInTheDocument();
-    expect(screen.getByText('30%')).toHaveClass('text-gray-400');
+    expect(screen.getByText('30%')).toHaveClass('text-neutral-400');
     expect(screen.getByText('+2 more')).toBeInTheDocument();
     expect(screen.queryByText('f')).not.toBeInTheDocument();
   });
@@ -155,7 +166,10 @@ describe('JobDetailModal', () => {
       getResumeFileUrl,
     });
     expect(screen.getByRole('heading', { name: 'nested.pdf' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: COPY.LABELS.VIEW_ORIGINAL })).toHaveAttribute('href', 'https://x/file');
+    expect(screen.getByRole('link', { name: COPY.LABELS.VIEW_ORIGINAL })).toHaveAttribute(
+      'href',
+      'https://x/file'
+    );
     const closeButtons = screen.getAllByRole('button', { name: COPY.LABELS.CLOSE });
     fireEvent.click(closeButtons[closeButtons.length - 1]);
     expect(onCloseResumeDetail).toHaveBeenCalledTimes(1);

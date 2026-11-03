@@ -1,3 +1,5 @@
+import type { Education, Experience } from '@resume-platform/resume-nlp';
+
 export interface MatchJobData {
   resumeId: string;
 }
@@ -18,9 +20,9 @@ export interface ResumeWithParsedData {
   email?: string;
   phone?: string;
   skills?: string[];
-  experience?: any[];
-  education?: any[];
-  parsed_data?: any;
+  experience?: Experience[];
+  education?: Education[];
+  parsed_data?: { rawText?: string } | null;
 }
 
 export interface QueueConfig {

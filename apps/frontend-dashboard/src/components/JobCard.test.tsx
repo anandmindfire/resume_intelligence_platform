@@ -17,10 +17,7 @@ describe('JobCard', () => {
 
   it('shows up to five skills and a "+N more" indicator', () => {
     render(
-      <JobCard
-        job={makeJob({ skills: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] })}
-        onClick={vi.fn()}
-      />
+      <JobCard job={makeJob({ skills: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] })} onClick={vi.fn()} />
     );
     ['A', 'B', 'C', 'D', 'E'].forEach((s) => expect(screen.getByText(s)).toBeInTheDocument());
     expect(screen.queryByText('F')).not.toBeInTheDocument();
@@ -38,24 +35,24 @@ describe('JobCard', () => {
   });
 
   it('shows a green score for high matches with pluralised count', () => {
-    render(<JobCard job={makeJob()} matchCount={3} avgMatchScore={0.82} onClick={vi.fn()} />);
-    expect(screen.getByText('82%')).toHaveClass('text-green-600');
+    render(<JobCard job={makeJob()} matchCount={3} avgMatchScore={82} onClick={vi.fn()} />);
+    expect(screen.getByText('82%')).toHaveClass('text-success-600');
     expect(screen.getByText('3 matches')).toBeInTheDocument();
   });
 
   it('shows a yellow score for medium matches and singular count', () => {
     render(<JobCard job={makeJob()} matchCount={1} avgMatchScore={55} onClick={vi.fn()} />);
-    expect(screen.getByText('55%')).toHaveClass('text-yellow-600');
+    expect(screen.getByText('55%')).toHaveClass('text-warning-600');
     expect(screen.getByText('1 match')).toBeInTheDocument();
   });
 
   it('shows a grey score for low matches', () => {
     render(<JobCard job={makeJob()} matchCount={2} avgMatchScore={0} onClick={vi.fn()} />);
-    expect(screen.getByText('0%')).toHaveClass('text-gray-400');
+    expect(screen.getByText('0%')).toHaveClass('text-neutral-400');
   });
 
   it('shows the score when only an average is provided', () => {
-    render(<JobCard job={makeJob()} avgMatchScore={0.3} onClick={vi.fn()} />);
+    render(<JobCard job={makeJob()} avgMatchScore={30} onClick={vi.fn()} />);
     expect(screen.getByText('30%')).toBeInTheDocument();
     expect(screen.getByText('0 matches')).toBeInTheDocument();
   });

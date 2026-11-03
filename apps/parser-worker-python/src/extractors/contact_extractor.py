@@ -7,13 +7,19 @@ def extract_email(text: str) -> Optional[str]:
     if not text:
         return None
     
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
     matches = re.findall(email_pattern, text)
     
     if matches:
         # Return first valid email
         return matches[0]
     return None
+
+def _is_year_sequence(value: str) -> bool:
+    """True if every digit group in the value is a 4-digit year (19xx/20xx)"""
+    groups = re.findall(r'\d+', value)
+    return bool(groups) and all(re.fullmatch(r'(?:19|20)\d{2}', g) for g in groups)
+
 
 def extract_phone(text: str) -> Optional[str]:
     """Extract phone number from text - supports multiple formats"""
@@ -60,8 +66,8 @@ def extract_phone(text: str) -> Optional[str]:
                 phone = re.sub(r'[^\d+]', '', match)
                 # Filter out dates, years, and other numeric sequences
                 if len(phone) >= 10 and len(phone) <= 15:
-                    # Don't match if it looks like a year or date
-                    if not re.match(r'^(19|20)\d{2}$', phone[-4:]):
+                    # Don't match if it's just a run of years (e.g. "2015 2019 2021")
+                    if not _is_year_sequence(match):
                         return phone
     
     return None

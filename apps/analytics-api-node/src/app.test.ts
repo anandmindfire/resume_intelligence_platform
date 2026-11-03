@@ -27,6 +27,8 @@ vi.mock('./services/jobService', () => ({
 
 vi.mock('@resume-platform/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
 }));
 
 import { config } from '@resume-platform/config';
@@ -51,6 +53,28 @@ describe('analytics-api app', () => {
   });
 
   const get = (url: string) => app.inject({ method: 'GET', url });
+
+  describe('request correlation', () => {
+    it('adopts the x-request-id sent by the gateway and returns it', async () => {
+      const res = await app.inject({
+        url: '/health',
+        headers: { 'x-request-id': 'gateway-trace-0001' },
+      });
+
+      expect(res.headers['x-request-id']).toBe('gateway-trace-0001');
+    });
+
+    it('generates an id for direct calls and ignores malformed ones', async () => {
+      const direct = await app.inject({ url: '/health' });
+      const forged = await app.inject({
+        url: '/health',
+        headers: { 'x-request-id': 'bad id\nforged-log-line' },
+      });
+
+      expect(direct.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+      expect(forged.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    });
+  });
 
   it('GET /health reports ok', async () => {
     const res = await get('/health');
@@ -90,15 +114,32 @@ describe('analytics-api app', () => {
     });
 
     it('GET /api/v1/experience/stats and /education/stats return service data', async () => {
-      analytics.getExperienceStats.mockResolvedValueOnce({ avg_years: 3, min_years: 1, max_years: 5 });
+      analytics.getExperienceStats.mockResolvedValueOnce({
+        avg_years: 3,
+        min_years: 1,
+        max_years: 5,
+      });
       analytics.getEducationStats.mockResolvedValueOnce([{ institution: 'MIT', count: 2 }]);
 
-      expect((await get('/api/v1/experience/stats')).json()).toEqual({ avg_years: 3, min_years: 1, max_years: 5 });
-      expect((await get('/api/v1/education/stats')).json()).toEqual([{ institution: 'MIT', count: 2 }]);
+      expect((await get('/api/v1/experience/stats')).json()).toEqual({
+        avg_years: 3,
+        min_years: 1,
+        max_years: 5,
+      });
+      expect((await get('/api/v1/education/stats')).json()).toEqual([
+        { institution: 'MIT', count: 2 },
+      ]);
     });
 
     it('GET /api/v1/matches parses filters and pagination', async () => {
-      analytics.getRoleMatches.mockResolvedValueOnce({ data: [], total: 0, page: 2, limit: 5, totalPages: 1, uniqueRoles: [] });
+      analytics.getRoleMatches.mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 2,
+        limit: 5,
+        totalPages: 1,
+        uniqueRoles: [],
+      });
 
       const res = await get('/api/v1/matches?roleId=role-1&minScore=70&page=2&limit=5');
 
@@ -107,15 +148,30 @@ describe('analytics-api app', () => {
     });
 
     it('GET /api/v1/matches applies defaults', async () => {
-      analytics.getRoleMatches.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 10, totalPages: 1, uniqueRoles: [] });
+      analytics.getRoleMatches.mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        uniqueRoles: [],
+      });
       await get('/api/v1/matches');
       expect(analytics.getRoleMatches).toHaveBeenCalledWith(undefined, 0, { page: 1, limit: 10 });
     });
 
     it('GET /api/v1/resumes sanitizes filters and passes sorting', async () => {
-      analytics.getResumes.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 });
+      analytics.getResumes.mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
 
-      await get('/api/v1/resumes?keyword=%20jane%20&location=Pune&minScore=50&roleId=r&page=1&limit=20&sortBy=name&sortOrder=ASC');
+      await get(
+        '/api/v1/resumes?keyword=%20jane%20&location=Pune&minScore=50&roleId=r&page=1&limit=20&sortBy=name&sortOrder=ASC'
+      );
 
       expect(analytics.getResumes).toHaveBeenCalledWith(
         { keyword: 'jane', location: 'Pune', minScore: 50, roleId: 'r' },
@@ -124,7 +180,13 @@ describe('analytics-api app', () => {
     });
 
     it('GET /api/v1/resumes defaults sorting to newest first', async () => {
-      analytics.getResumes.mockResolvedValueOnce({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      analytics.getResumes.mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
       await get('/api/v1/resumes');
       expect(analytics.getResumes).toHaveBeenCalledWith(
         { keyword: undefined, location: undefined, minScore: 0, roleId: undefined },
@@ -147,7 +209,11 @@ describe('analytics-api app', () => {
     it('POST /api/v1/export/csv passes the requested ids', async () => {
       analytics.exportResumesToCSV.mockResolvedValue([{ id: 'a' }]);
 
-      const res = await app.inject({ method: 'POST', url: '/api/v1/export/csv', payload: { resumeIds: ['a'] } });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/export/csv',
+        payload: { resumeIds: ['a'] },
+      });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual([{ id: 'a' }]);
       expect(analytics.exportResumesToCSV).toHaveBeenLastCalledWith(['a']);
@@ -179,7 +245,13 @@ describe('analytics-api app', () => {
   });
 
   describe('job routes', () => {
-    const job = { id: 'job-1', title: 'Backend', requiredSkills: [], preferredSkills: [], keywords: [] };
+    const job = {
+      id: 'job-1',
+      title: 'Backend',
+      requiredSkills: [],
+      preferredSkills: [],
+      keywords: [],
+    };
 
     it('GET /api/v1/jobs lists jobs', async () => {
       jobs.getAllJobs.mockResolvedValueOnce([job]);
@@ -187,10 +259,12 @@ describe('analytics-api app', () => {
     });
 
     it('GET /api/v1/jobs/with-matches is not captured by the :id route', async () => {
-      jobs.getAllJobsWithMatches.mockResolvedValueOnce([{ ...job, matchCount: 1, avgMatchScore: 5000 }]);
+      jobs.getAllJobsWithMatches.mockResolvedValueOnce([
+        { ...job, matchCount: 1, avgMatchScore: 50 },
+      ]);
 
       const res = await get('/api/v1/jobs/with-matches');
-      expect(res.json()).toEqual([{ ...job, matchCount: 1, avgMatchScore: 5000 }]);
+      expect(res.json()).toEqual([{ ...job, matchCount: 1, avgMatchScore: 50 }]);
       expect(jobs.getJobById).not.toHaveBeenCalled();
     });
 
@@ -223,7 +297,11 @@ describe('analytics-api app', () => {
       const res = await app.inject({ method: 'POST', url: '/api/v1/jobs/seed' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ message: 'Jobs seeded successfully', count: 2, jobs: [job, job] });
+      expect(res.json()).toEqual({
+        message: 'Jobs seeded successfully',
+        count: 2,
+        jobs: [job, job],
+      });
       expect(jobs.seedJobs).toHaveBeenCalledWith(MOCK_JOBS);
     });
 
@@ -247,7 +325,11 @@ describe('analytics-api app', () => {
       ['POST', '/api/v1/jobs', () => jobs.createJob],
     ] as const)('%s %s returns 500 when the service fails', async (method, url, fn) => {
       fn().mockRejectedValueOnce(new Error('db down'));
-      const res = await app.inject({ method, url, ...(method === 'POST' ? { payload: { title: 'x' } } : {}) });
+      const res = await app.inject({
+        method,
+        url,
+        ...(method === 'POST' ? { payload: { title: 'x' } } : {}),
+      });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'db down' });
     });
@@ -285,13 +367,26 @@ describe('analytics-api app', () => {
       );
       const ok = spec.paths['/api/v1/resumes/{id}'].get.responses['200'];
       expect(ok.description).toBe('The resume');
-      expect(ok.content['application/json'].schema).toMatchObject({ $ref: '#/components/schemas/Resume' });
+      expect(ok.content['application/json'].schema).toMatchObject({
+        $ref: '#/components/schemas/Resume',
+      });
     });
 
     it('documents query parameters for resume search', async () => {
       const spec = (await get('/docs/json')).json();
-      const names = spec.paths['/api/v1/resumes'].get.parameters.map((p: { name: string }) => p.name);
-      expect(names).toEqual(['keyword', 'location', 'roleId', 'minScore', 'page', 'limit', 'sortBy', 'sortOrder']);
+      const names = spec.paths['/api/v1/resumes'].get.parameters.map(
+        (p: { name: string }) => p.name
+      );
+      expect(names).toEqual([
+        'keyword',
+        'location',
+        'roleId',
+        'minScore',
+        'page',
+        'limit',
+        'sortBy',
+        'sortOrder',
+      ]);
     });
 
     it('serves Swagger UI', async () => {

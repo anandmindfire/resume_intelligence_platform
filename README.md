@@ -69,7 +69,10 @@ All Node.js APIs (API Gateway, Upload Service, Analytics API) use industry-stand
 
 - **Helmet** — HTTP security headers: HSTS, X-Content-Type-Options (noSniff), X-Frame-Options, Referrer-Policy, Cross-Origin-Resource-Policy, permitted cross-domain policies, etc.
 - **Rate limiting** — Per-IP limits (configurable via `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`). Gateway default: 10000/15min; Upload: 500/15min; Analytics: 1000/15min.
-- **CORS** — Allowed methods and headers restricted; credentials supported where needed.
+- **CORS** — Allowed methods and headers restricted. Set `CORS_ORIGINS` (comma-separated) to an explicit allow-list in production, or `false` if the API is only used same-origin; credentials are only ever allowed together with an explicit list. A warning is logged at startup in production if it is unset.
+- **Request correlation** — Every request carries an `x-request-id`. nginx sets it at the edge, the gateway adopts it (a malformed or client-forged value is replaced), forwards it to the upstream service, and returns it on every response (including 404/429/5xx). Each service's access log line includes it as `reqId`, so one id follows a request through all logs. Query strings are never logged (they can contain search terms / personal data).
+- **Client identity behind proxies** — `request.ip` (and therefore per-IP rate limiting) only reflects the real client if the service is told how many proxies sit in front of it via `TRUST_PROXY`: `1` (one hop, e.g. nginx → gateway, or gateway → upstream service), `true` (trust every hop), a CIDR list, or unset/`false` (default: don't trust `X-Forwarded-For`). The gateway always sends the resolved client IP to upstreams. **Set `TRUST_PROXY=1` on the gateway and on the upload/analytics services when they are only reachable through their proxy; leave it unset on any service whose port is published directly**, otherwise clients can choose their own rate-limit identity. Without it, upstream rate limits count every user as the gateway's single address.
+- **Upstream failures** — The gateway applies a per-route timeout and answers `504` (timeout), `503` (upstream down) or `502` (connection dropped) with `{ success: false, error, requestId }`, never the raw upstream error.
 
 Tune limits per environment (e.g. higher for load tests, lower for public APIs).
 
@@ -92,6 +95,7 @@ resume-intelligence-platform/
 ├── packages/                     # Shared libraries
 │   ├── config/                   # Shared config (env, ports)
 │   ├── logger/                   # Shared logger
+│   ├── http-kit/                 # Shared Fastify setup: request ids, access log, security defaults
 │   ├── queue-lib/                # BullMQ producers/consumers
 │   ├── resume-nlp/               # NLP utilities (Node)
 │   └── role-matching/            # Matching/scoring logic
@@ -120,7 +124,7 @@ resume-intelligence-platform/
 
 ## Prerequisites
 
-- **Node.js** 18+
+- **Node.js** 24+ (matches `.nvmrc` and the service Docker images)
 - **pnpm** 8+ — `npm install -g pnpm`
 - **Docker** and **Docker Compose**
 - **Python 3.9+** (optional, for local parser/OCR development)
@@ -267,6 +271,20 @@ Python setup (once, in a virtualenv):
 for w in ocr parser insights; do pip install -r apps/$w-worker-python/requirements-dev.txt; done
 pnpm test:python
 ```
+
+### Lint and CI
+
+`pnpm lint` lints every workspace with ESLint (`eslint.config.mjs`) and **fails on any warning** (`--max-warnings 0`); `pnpm lint:fix` applies auto-fixes. Unused code should be deleted rather than silenced, and `catch` bindings are `unknown` (use `getErrorMessage` from each service's `utils/errors.ts`).
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `main` / `Development`:
+
+| Job      | What it does                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------- |
+| `node`   | On Node 22 and 24 (matches `.nvmrc` and the images): `pnpm lint`, `build`, `type-check`, `test:coverage` |
+| `python` | One job per worker on Python 3.11: `pytest` with coverage (fails under 90%)                              |
+| `docker` | After the above pass, builds every service image without pushing, to catch Dockerfile/lockfile breakage  |
+
+Coverage floors are enforced (Node: 90% lines/statements/functions, 85% branches in `vitest.config.mts`; Python: 90%). To reproduce CI locally: `pnpm install --frozen-lockfile && pnpm lint && pnpm build && pnpm type-check && pnpm test:coverage`.
 
 Known bugs are captured as expected failures (`it.fails` in Vitest, `xfail(strict=True)` in pytest) with a `BUG:` note; they start failing loudly once fixed, so the marker can be removed.
 

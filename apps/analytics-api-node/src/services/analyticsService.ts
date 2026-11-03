@@ -1,4 +1,3 @@
-import { logger } from '@resume-platform/logger';
 import { resumeRepository } from '../repositories/resumeRepository';
 import { matchRepository } from '../repositories/matchRepository';
 import { analyticsRepository } from '../repositories/analyticsRepository';

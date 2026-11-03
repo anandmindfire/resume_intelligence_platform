@@ -19,6 +19,13 @@ export function errorHandler(
   }
 
   const statusCode = error.statusCode || 500;
+
+  // Client errors raised by Fastify and its plugins (e.g. 413 FST_REQ_FILE_TOO_LARGE) carry a safe,
+  // actionable message; only server errors are masked.
+  if (statusCode >= 400 && statusCode < 500) {
+    return reply.status(statusCode).send({ error: error.message });
+  }
+
   return reply.status(statusCode).send({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? error.message : undefined,

@@ -19,17 +19,22 @@ async function readBlob(blob: Blob): Promise<string> {
 
 describe('exportResumesToCSV', () => {
   let createObjectURL: ReturnType<typeof vi.fn>;
+  let revokeObjectURL: ReturnType<typeof vi.fn>;
   let clickSpy: ReturnType<typeof vi.spyOn>;
   const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
 
   beforeEach(() => {
     createObjectURL = vi.fn(() => 'blob:mock-url');
     URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL;
+    revokeObjectURL = vi.fn();
+    URL.revokeObjectURL = revokeObjectURL as unknown as typeof URL.revokeObjectURL;
     clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   });
 
   afterEach(() => {
     URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
   it('alerts and does nothing when there are no resumes', () => {
@@ -55,6 +60,13 @@ describe('exportResumesToCSV', () => {
     expect(appendSpy).toHaveBeenCalledWith(link);
     expect(removeSpy).toHaveBeenCalledWith(link);
     expect(document.body.contains(link)).toBe(false);
+  });
+
+  it('revokes the blob URL after the download is triggered', () => {
+    exportResumesToCSV([makeResume()]);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+    expect(revokeObjectURL.mock.invocationCallOrder[0]).toBeGreaterThan(clickSpy.mock.invocationCallOrder[0]);
   });
 
   it('uses a custom filename', () => {

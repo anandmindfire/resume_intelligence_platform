@@ -30,6 +30,7 @@ export function useAnalyticsPage() {
     if (skillsResult.status === 'fulfilled') setSkills(skillsResult.value ?? []);
     if (expResult.status === 'fulfilled') setExperience(expResult.value ?? null);
     if (eduResult.status === 'fulfilled') setEducation(eduResult.value ?? []);
+    return [skillsResult, expResult, eduResult].every((r) => r.status === 'rejected');
   }, []);
 
   const loadMatches = useCallback(async () => {
@@ -56,8 +57,7 @@ export function useAnalyticsPage() {
     try {
       setLoading(true);
       setError(null);
-      await loadCharts();
-      const allRejected = false;
+      const allRejected = await loadCharts();
       if (allRejected) setError('Failed to load analytics data. Please check your connection and try again.');
     } catch (err) {
       console.error('Unexpected error loading analytics:', err);

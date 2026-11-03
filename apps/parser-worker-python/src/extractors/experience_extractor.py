@@ -2,6 +2,14 @@
 import re
 from typing import List, Dict, Any, Optional
 
+from utils.text_utils import MONTH_NAMES_PATTERN as _MONTH
+
+
+def _is_ocr_bullet(line: str) -> bool:
+    """OCR renders bullet glyphs as a lone lowercase letter ("e Built APIs"); "I"/"A" are real words"""
+    return bool(re.match(r'^[a-z]\s+', line))
+
+
 def extract_experience(text: str) -> List[Dict[str, Any]]:
     """Extract work experience entries with detailed information"""
     if not text:
@@ -36,11 +44,11 @@ def extract_experience(text: str) -> List[Dict[str, Any]]:
         
         if in_experience:
             # Skip bullet points that start with single letters (like "e " which are OCR artifacts)
-            if re.match(r'^[a-z]\s+', line_stripped.lower()) and len(line_stripped) > 20:
+            if _is_ocr_bullet(line_stripped) and len(line_stripped) > 20:
                 # This is likely a bullet point, not a job title
                 if current_exp.get('title'):
                     # Add as responsibility
-                    bullet_text = re.sub(r'^[a-z]\s+', '', line_stripped, flags=re.IGNORECASE).strip()
+                    bullet_text = re.sub(r'^[a-z]\s+', '', line_stripped).strip()
                     if bullet_text:
                         current_exp['responsibilities'].append(bullet_text)
                         collecting_bullets = True
@@ -77,7 +85,7 @@ def extract_experience(text: str) -> List[Dict[str, Any]]:
             # Detect job title (enhanced detection) - check if line contains title pattern
             # Skip if it's a bullet point
             is_title = False
-            if not _is_bullet_point(line_stripped) and not re.match(r'^[a-z]\s+', line_stripped.lower()):
+            if not _is_bullet_point(line_stripped) and not _is_ocr_bullet(line_stripped):
                 is_title = _is_job_title(line_stripped, i, lines)
             
             # If we find a new title, save previous experience
@@ -118,7 +126,7 @@ def extract_experience(text: str) -> List[Dict[str, Any]]:
                         current_exp['endDate'] = date_info.get('start') or date_info.get('end')
                 
                 # Company name (usually after title, before description)
-                elif not current_exp.get('company'):
+                elif not current_exp.get('company') and not collecting_bullets and not _is_bullet_point(line_stripped):
                     if not _contains_date(line_stripped) and not is_title and len(line_stripped) < 80:
                         # Check if it might be location instead
                         if _is_location(line_stripped):
@@ -127,7 +135,7 @@ def extract_experience(text: str) -> List[Dict[str, Any]]:
                             # Remove date if present
                             company_line = _remove_date_from_line(line_stripped)
                             # Skip if it's clearly a bullet point
-                            if not re.match(r'^[a-z]\s+', company_line.lower()):
+                            if not _is_ocr_bullet(company_line):
                                 current_exp['company'] = company_line
                 
                 # Location (often after company or on same line)
@@ -152,7 +160,7 @@ def extract_experience(text: str) -> List[Dict[str, Any]]:
                     # Skip if it's just a date or location
                     if not _contains_date(line_stripped) and not _is_location(line_stripped):
                         # Skip single-letter bullet points
-                        if not re.match(r'^[a-z]\s+', line_stripped.lower()):
+                        if not _is_ocr_bullet(line_stripped):
                             if current_exp.get('description'):
                                 current_exp['description'] += ' ' + line_stripped
                             else:
@@ -179,7 +187,7 @@ def _is_job_title(line: str, line_index: int = 0, all_lines: List[str] = None) -
         return False
     
     # Skip if it starts with a single letter followed by space (OCR bullet point artifact)
-    if re.match(r'^[a-z]\s+', line.lower()):
+    if _is_ocr_bullet(line):
         return False
     
     # Skip if it's clearly a bullet point
@@ -192,7 +200,9 @@ def _is_job_title(line: str, line_index: int = 0, all_lines: List[str] = None) -
                     'managed', 'created', 'led', 'analyzed', 'built', 'improved', 'increased',
                     'facilitated', 'coordinated', 'supported', 'maintained', 'initiated',
                     'optimized', 'utilized', 'enhanced', 'demonstrated', 'engaged', 'automated',
-                    'migrated', 'gained', 'received']
+                    'migrated', 'gained', 'received',
+                    # Sentence openers (first-person / articles), never part of a job title
+                    'i', 'we', 'my', 'our', 'a', 'an']
     
     first_word = re.split(r'\s', line.strip())[0].lower() if line.strip() else ''
     # Remove bullet markers if attached
@@ -257,7 +267,9 @@ def _contains_date(line: str) -> bool:
 def _extract_date_info(line: str) -> Optional[Dict[str, Any]]:
     """Extract date information including range and duration"""
     # Look for date ranges like "Jan 2020 - Dec 2022" or "2020 - 2022"
-    date_range_pattern = r'(\d{4}|\w+\s+\d{4})\s*[-–—]\s*(\d{4}|\w+\s+\d{4}|present|current|now)'
+    date_range_pattern = (
+        rf'(\d{{4}}|{_MONTH}\s+\d{{4}})\s*[-–—]\s*(\d{{4}}|{_MONTH}\s+\d{{4}}|present|current|now)'
+    )
     match = re.search(date_range_pattern, line, re.IGNORECASE)
     if match:
         start = match.group(1)
@@ -433,7 +445,7 @@ def _parse_pipe_formatted_entry(parts: List[str], line_index: int, all_lines: Li
             continue
         
         # Otherwise, assign based on position
-        if i == 0 and not entry['company']:
+        if not entry['company'] and (i == 0 or entry['title']):
             entry['company'] = _remove_date_from_line(part)
         elif i == 1 and not entry['title']:
             entry['title'] = _remove_date_from_line(part)

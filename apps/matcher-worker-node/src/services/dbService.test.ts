@@ -82,6 +82,26 @@ describe('matcher dbService', () => {
     expect(client.query).toHaveBeenCalledWith('SELECT * FROM job_roles');
   });
 
+  it('getJobRoles maps null columns to empty arrays and undefined scalars', async () => {
+    client.query.mockResolvedValueOnce({
+      rows: [
+        { id: 'j2', title: 'Any', required_skills: null, preferred_skills: null, required_experience: null, keywords: null, location: null },
+      ],
+    });
+
+    await expect(dbService.getJobRoles()).resolves.toEqual([
+      {
+        id: 'j2',
+        title: 'Any',
+        requiredSkills: [],
+        preferredSkills: [],
+        requiredExperience: undefined,
+        keywords: [],
+        location: undefined,
+      },
+    ]);
+  });
+
   it('saveMatches replaces existing matches for the resume', async () => {
     client.query.mockResolvedValue({ rows: [] });
 

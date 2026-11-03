@@ -1,5 +1,5 @@
 # Multi-stage build for API Gateway microservice
-FROM node:18-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
@@ -20,6 +20,7 @@ COPY tsconfig.base.json ./
 # Copy package.json files for workspace resolution
 COPY packages/config/package.json ./packages/config/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/http-kit/package.json ./packages/http-kit/
 
 # Copy app package.json
 COPY apps/api-gateway-node/package.json ./apps/api-gateway-node/
@@ -30,6 +31,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source code for packages (dependencies)
 COPY packages/config ./packages/config
 COPY packages/logger ./packages/logger
+COPY packages/http-kit ./packages/http-kit
 
 # Copy source code for app
 COPY apps/api-gateway-node ./apps/api-gateway-node
@@ -39,6 +41,9 @@ WORKDIR /app/packages/config
 RUN pnpm build
 
 WORKDIR /app/packages/logger
+RUN pnpm build
+
+WORKDIR /app/packages/http-kit
 RUN pnpm build
 
 # Build the app
@@ -56,6 +61,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Copy package.json files
 COPY packages/config/package.json ./packages/config/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/http-kit/package.json ./packages/http-kit/
 COPY apps/api-gateway-node/package.json ./apps/api-gateway-node/
 
 # Install only production dependencies
@@ -66,6 +72,8 @@ COPY --from=builder /app/packages/config/dist ./packages/config/dist
 COPY --from=builder /app/packages/config/package.json ./packages/config/
 COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
 COPY --from=builder /app/packages/logger/package.json ./packages/logger/
+COPY --from=builder /app/packages/http-kit/dist ./packages/http-kit/dist
+COPY --from=builder /app/packages/http-kit/package.json ./packages/http-kit/
 
 # Copy built app
 COPY --from=builder /app/apps/api-gateway-node/dist ./apps/api-gateway-node/dist

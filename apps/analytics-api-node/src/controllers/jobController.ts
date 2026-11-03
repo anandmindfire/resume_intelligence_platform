@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { getErrorMessage } from '@resume-platform/logger';
 import { jobService } from '../services/jobService';
 import { MOCK_JOBS } from '../data/mockJobs';
 
@@ -6,8 +7,8 @@ export async function getAllJobs(request: FastifyRequest, reply: FastifyReply) {
   try {
     const jobs = await jobService.getAllJobs();
     return jobs;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -15,8 +16,8 @@ export async function getJobsWithMatches(request: FastifyRequest, reply: Fastify
   try {
     const jobs = await jobService.getAllJobsWithMatches();
     return jobs;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -30,8 +31,8 @@ export async function getJobById(
       return reply.status(404).send({ error: 'Job not found' });
     }
     return job;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -49,8 +50,8 @@ export async function getJobMatches(
       return reply.status(404).send({ error: 'Job not found' });
     }
     return matchDetail;
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -62,8 +63,8 @@ export async function seedJobs(request: FastifyRequest, reply: FastifyReply) {
       count: seededJobs.length,
       jobs: seededJobs,
     };
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }
 
@@ -84,7 +85,7 @@ export async function createJob(
   try {
     const job = await jobService.createJob(request.body);
     return reply.status(201).send(job);
-  } catch (error: any) {
-    return reply.status(500).send({ error: error.message });
+  } catch (error) {
+    return reply.status(500).send({ error: getErrorMessage(error) });
   }
 }

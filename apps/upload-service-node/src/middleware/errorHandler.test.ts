@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
-vi.mock('@resume-platform/logger', () => ({ logger: { error: vi.fn() } }));
+vi.mock('@resume-platform/logger', () => ({
+  logger: { error: vi.fn() },
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  getErrorStack: (e: unknown) => (e instanceof Error ? e.stack : undefined),
+}));
 
 import { logger } from '@resume-platform/logger';
 import { errorHandler } from './errorHandler';
@@ -42,12 +46,25 @@ describe('upload errorHandler', () => {
     }
   );
 
-  it('uses the error status code and hides the message outside development', () => {
+  it('passes client errors (4xx) through with their message and status', () => {
     vi.stubEnv('NODE_ENV', 'production');
     const reply = makeReply();
-    errorHandler(makeError('secret detail', 413), request, reply as unknown as FastifyReply);
+    errorHandler(
+      makeError('request file too large', 413),
+      request,
+      reply as unknown as FastifyReply
+    );
 
     expect(reply.status).toHaveBeenCalledWith(413);
+    expect(reply.send).toHaveBeenCalledWith({ error: 'request file too large' });
+  });
+
+  it('masks server errors (5xx) outside development', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const reply = makeReply();
+    errorHandler(makeError('secret detail', 503), request, reply as unknown as FastifyReply);
+
+    expect(reply.status).toHaveBeenCalledWith(503);
     expect(reply.send).toHaveBeenCalledWith({ error: 'Internal server error', message: undefined });
   });
 

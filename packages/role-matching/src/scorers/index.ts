@@ -1,5 +1,5 @@
 import { JobRole, MatchResult } from '../models';
-import { ExtractedResume } from '@resume-platform/resume-nlp';
+import { ExtractedResume, Experience } from '@resume-platform/resume-nlp';
 
 export class RoleMatcher {
   static match(resume: ExtractedResume, role: JobRole): MatchResult {
@@ -7,11 +7,11 @@ export class RoleMatcher {
     const keywordScore = this.calculateKeywordScore(resume.rawText, role);
     const experienceScore = this.calculateExperienceScore(resume.experience, role);
 
-    // Weighted overall score: 50% Skills, 40% Experience, 10% Keywords
-    const overallScore = (
-      skillScore * 0.5 +
-      experienceScore * 0.4 +
-      keywordScore * 0.1
+    // Weighted overall score: 50% Skills, 40% Experience, 10% Keywords.
+    // The experience bonus can push the raw sum above 1 (up to 1.08); a match percentage never exceeds 100.
+    const overallScore = Math.min(
+      skillScore * 0.5 + experienceScore * 0.4 + keywordScore * 0.1,
+      1
     );
 
     const matchedSkills = resume.skills.filter(resumeSkill =>
@@ -83,7 +83,7 @@ export class RoleMatcher {
     return matchedKeywords / role.keywords.length;
   }
 
-  private static calculateExperienceScore(experience: any[], role: JobRole): number {
+  private static calculateExperienceScore(experience: Experience[], role: JobRole): number {
     if (!role.requiredExperience) return 1.0;
 
     const totalExperience = this.calculateTotalExperience(experience);
@@ -98,7 +98,7 @@ export class RoleMatcher {
     return Math.max(1.0 - (gap / role.requiredExperience) * 1.5, 0);
   }
 
-  private static calculateTotalExperience(experience: any[]): number {
+  private static calculateTotalExperience(experience: Experience[]): number {
     if (!experience || experience.length === 0) return 0;
 
     return experience.reduce((total, exp) => {
@@ -125,8 +125,9 @@ export class RoleMatcher {
     }
 
     // If no matches but a number exists at start, assume years (e.g. "2")
-    if (years === 0 && /^\d+/.test(str)) {
-      years = parseFloat(str.match(/^\d+(\.\d+)?/)![0]);
+    const leadingNumber = str.match(/^\d+(\.\d+)?/);
+    if (years === 0 && leadingNumber) {
+      years = parseFloat(leadingNumber[0]);
     }
 
     return years;

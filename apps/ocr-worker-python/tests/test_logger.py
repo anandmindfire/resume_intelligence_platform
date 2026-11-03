@@ -91,15 +91,18 @@ def test_json_formatter_omits_optional_fields_when_absent():
     assert "exception" not in data and "service" not in data
 
 
-@pytest.mark.xfail(
-    reason="BUG: callers throughout the workers (e.g. main.py:29, queue_service.py:118) pass a context "
-    "dict as a positional logging arg, which logging treats as %-format mapping; JsonFormatter only "
-    "emits record.getMessage(), so all structured context (resume_id, queue, error...) is silently "
-    "dropped from the JSON logs.",
-    strict=True,
-)
 def test_context_dict_passed_by_callers_reaches_json_output(fresh_name):
     logger = get_logger(fresh_name())
     buf = _capture(logger)
+    logger.info("Processing OCR job done", {"resume_id": "r1"})
+    record = json.loads(buf.getvalue())
+    assert record["message"] == "Processing OCR job done"
+    assert record["context"] == {"resume_id": "r1"}
+
+
+def test_context_dict_is_rendered_in_text_format(monkeypatch, fresh_name):
+    monkeypatch.setenv("LOG_FORMAT", "text")
+    logger = get_logger(fresh_name())
+    buf = _capture(logger)
     logger.info("Processing OCR job", {"resume_id": "r1"})
-    assert "r1" in buf.getvalue()
+    assert 'INFO: Processing OCR job {"resume_id": "r1"}' in buf.getvalue()

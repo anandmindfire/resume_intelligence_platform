@@ -1,10 +1,7 @@
 import React from 'react';
 import type { StatCardProps } from '../../types';
 
-const variantStyles: Record<
-  NonNullable<StatCardProps['variant']>,
-  Record<string, string>
-> = {
+const variantStyles: Record<NonNullable<StatCardProps['variant']>, Record<string, string>> = {
   primary: {
     border: 'border-l-primary-500',
     iconBg: 'bg-primary-100',
@@ -21,29 +18,29 @@ const variantStyles: Record<
     gradientTo: 'to-secondary-400',
     bgGradient: 'from-secondary-50 to-white',
   },
-  amber: {
-    border: 'border-l-amber-500',
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-    gradientFrom: 'from-amber-600',
-    gradientTo: 'to-amber-400',
-    bgGradient: 'from-amber-50 to-white',
+  warning: {
+    border: 'border-l-warning-500',
+    iconBg: 'bg-warning-100',
+    iconColor: 'text-warning-600',
+    gradientFrom: 'from-warning-600',
+    gradientTo: 'to-warning-400',
+    bgGradient: 'from-warning-50 to-white',
   },
-  purple: {
-    border: 'border-l-purple-500',
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
-    gradientFrom: 'from-purple-600',
-    gradientTo: 'to-purple-400',
-    bgGradient: 'from-purple-50 to-white',
+  accent: {
+    border: 'border-l-accent-500',
+    iconBg: 'bg-accent-100',
+    iconColor: 'text-accent-600',
+    gradientFrom: 'from-accent-600',
+    gradientTo: 'to-accent-400',
+    bgGradient: 'from-accent-50 to-white',
   },
-  blue: {
-    border: 'border-l-blue-500',
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600',
-    gradientFrom: 'from-blue-600',
-    gradientTo: 'to-blue-400',
-    bgGradient: 'from-blue-50 to-white',
+  info: {
+    border: 'border-l-info-500',
+    iconBg: 'bg-info-100',
+    iconColor: 'text-info-600',
+    gradientFrom: 'from-info-600',
+    gradientTo: 'to-info-400',
+    bgGradient: 'from-info-50 to-white',
   },
 };
 
@@ -61,9 +58,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       className={`stat-card ${styles.border} bg-gradient-to-br ${styles.bgGradient} hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300`}
     >
       <div className="flex items-start justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-          {title}
-        </h3>
+        <h3 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">{title}</h3>
         {Icon && (
           <div className={`${styles.iconBg} p-2 rounded-lg`}>
             <Icon className={`w-5 h-5 ${styles.iconColor}`} />
@@ -79,7 +74,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         {trend && (
           <div
             className={`flex items-center gap-1 mt-1 text-xs font-semibold ${
-              trend.isPositive ? 'text-secondary-600' : 'text-red-600'
+              trend.isPositive ? 'text-secondary-600' : 'text-danger-600'
             }`}
           >
             <span>{trend.isPositive ? '↑' : '↓'}</span>
@@ -87,7 +82,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           </div>
         )}
       </div>
-      {label && <p className="text-sm text-gray-500">{label}</p>}
+      {label && <p className="text-sm text-neutral-500">{label}</p>}
     </div>
   );
 };

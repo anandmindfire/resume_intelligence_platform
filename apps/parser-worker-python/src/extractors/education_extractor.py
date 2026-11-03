@@ -2,6 +2,9 @@
 import re
 from typing import List, Dict, Any, Optional
 
+from utils.text_utils import MONTH_NAMES_PATTERN as _MONTH
+
+
 def extract_education(text: str) -> List[Dict[str, Any]]:
     """Extract education entries with detailed information"""
     if not text:
@@ -43,11 +46,12 @@ def extract_education(text: str) -> List[Dict[str, Any]]:
             has_date = _contains_date(line_stripped)
             date_value = _extract_date(line_stripped) if has_date else None
             
-            # Check if this line is an institution (before degree line)
-            is_institution_line = (_is_institution(line_stripped) or _looks_like_institution(line_stripped)) and not has_date
-            
             # Detect degree (enhanced) - may be on same line as other info
             is_degree_line = _is_degree(line_stripped)
+            
+            # Check if this line is an institution (before degree line); a degree line is never one
+            is_institution_line = (_is_institution(line_stripped) or _looks_like_institution(line_stripped)) \
+                and not has_date and not is_degree_line
             
             # If we find an institution line before a degree, store it
             if is_institution_line and not current_edu.get('degree'):
@@ -75,8 +79,9 @@ def extract_education(text: str) -> List[Dict[str, Any]]:
                 # Try to separate degree from institution if both on same line
                 degree_parts = _split_degree_and_institution(degree_line)
                 
-                # If we already have an institution from previous line, use it
-                existing_institution = current_edu.get('institution') if current_edu else None
+                # Only an institution seeded from a preceding line (no degree yet) belongs to this
+                # degree; a completed previous entry's institution must not carry over
+                existing_institution = current_edu.get('institution') if current_edu and not current_edu.get('degree') else None
                 
                 # If still no institution, check previous line immediately (lookback)
                 if not existing_institution and i > 0:
@@ -215,7 +220,10 @@ def _is_institution(line: str) -> bool:
     institution_keywords = ['university', 'college', 'institute', 'school', 'academy', 
                           'polytechnic', 'technical', 'state university', 'national']
     line_lower = line.lower()
-    return any(keyword in line_lower for keyword in institution_keywords)
+    if any(keyword in line_lower for keyword in institution_keywords):
+        return True
+    # Well-known acronyms (IIT Delhi, MIT)
+    return bool(re.search(r'\b(iit|iiit|nit|iim|mit)\b', line_lower))
 
 def _looks_like_institution(line: str) -> bool:
     """Check if line might be an institution (heuristic)"""
@@ -290,7 +298,7 @@ def _contains_date(line: str) -> bool:
 def _extract_date(line: str) -> Optional[str]:
     """Extract date from line"""
     # Try date range first
-    date_range_pattern = r'(\d{4}|\w+\s+\d{4})\s*[-–—]\s*(\d{4}|\w+\s+\d{4}|present|current)'
+    date_range_pattern = rf'(\d{{4}}|{_MONTH}\s+\d{{4}})\s*[-–—]\s*(\d{{4}}|{_MONTH}\s+\d{{4}}|present|current)'
     match = re.search(date_range_pattern, line, re.IGNORECASE)
     if match:
         # Validate years

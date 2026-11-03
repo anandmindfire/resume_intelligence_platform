@@ -4,6 +4,8 @@ import { gatewayRoutes } from '../config/gatewayConfig';
 import { registerHealthRoutes } from './health';
 import { registerDocsRoutes } from './docs';
 import { apiInfoSchema, apiV1InfoSchema } from '../schemas/gateway.schemas';
+import { API_VERSION, PROXY, ROUTES } from '../constants';
+import { rewriteRequestHeaders } from '../utils/proxyHeaders';
 
 export async function registerRoutes(app: FastifyInstance, options: { docs?: boolean } = {}) {
   await registerHealthRoutes(app);
@@ -11,53 +13,29 @@ export async function registerRoutes(app: FastifyInstance, options: { docs?: boo
     await registerDocsRoutes(app);
   }
 
-  // Proxy to upload service
-  await app.register(httpProxy, {
-    upstream: gatewayRoutes.upload.upstream,
-    prefix: gatewayRoutes.upload.prefix,
-    rewritePrefix: gatewayRoutes.upload.rewritePrefix,
-    http2: false,
-    preHandler: async (request, reply) => {
-      // Optional: add custom logic before proxying
-    },
-    replyOptions: {
-      rewriteRequestHeaders: (originalReq, headers) => {
-        return {
-          ...headers,
-          'x-forwarded-for': originalReq.ip || '',
-        };
+  // One reverse proxy per upstream route: /api/upload -> upload service, /api/analytics|jobs|resumes -> analytics API.
+  for (const route of Object.values(gatewayRoutes)) {
+    const responseTimeout = route.timeout ?? PROXY.DEFAULT_RESPONSE_TIMEOUT_MS;
+    await app.register(httpProxy, {
+      upstream: route.upstream,
+      prefix: route.prefix,
+      rewritePrefix: route.rewritePrefix,
+      http2: false,
+      // Without limits a hung upstream would hold gateway requests open indefinitely. A timeout surfaces as
+      // 504 (see middleware/errorHandler.ts). Response timeouts cover time-to-first-byte and gaps between chunks.
+      undici: {
+        headersTimeout: responseTimeout,
+        bodyTimeout: responseTimeout,
+        connect: { timeout: PROXY.CONNECT_TIMEOUT_MS },
       },
-    },
-  });
-
-  // Proxy to analytics API (dashboard, skills, experience, education, matches, export)
-  await app.register(httpProxy, {
-    upstream: gatewayRoutes.analytics.upstream,
-    prefix: gatewayRoutes.analytics.prefix,
-    rewritePrefix: gatewayRoutes.analytics.rewritePrefix,
-    http2: false,
-  });
-
-  // Proxy to jobs API (analytics service, /api/v1/jobs)
-  await app.register(httpProxy, {
-    upstream: gatewayRoutes.jobs.upstream,
-    prefix: gatewayRoutes.jobs.prefix,
-    rewritePrefix: gatewayRoutes.jobs.rewritePrefix,
-    http2: false,
-  });
-
-  // Proxy to resumes API (analytics service, /api/v1/resumes)
-  await app.register(httpProxy, {
-    upstream: gatewayRoutes.resumes.upstream,
-    prefix: gatewayRoutes.resumes.prefix,
-    rewritePrefix: gatewayRoutes.resumes.rewritePrefix,
-    http2: false,
-  });
+      replyOptions: { rewriteRequestHeaders },
+    });
+  }
 
   // API v1 info (primary)
-  app.get('/api/v1', { schema: apiV1InfoSchema }, async () => ({
+  app.get(ROUTES.API_V1, { schema: apiV1InfoSchema }, async () => ({
     message: 'Resume Intelligence Platform API',
-    version: '1.0.0',
+    version: API_VERSION,
     apiVersion: 'v1',
     endpoints: {
       upload: gatewayRoutes.upload.prefix,
@@ -68,9 +46,9 @@ export async function registerRoutes(app: FastifyInstance, options: { docs?: boo
   }));
 
   // Legacy /api root (backward compatibility)
-  app.get('/api', { schema: apiInfoSchema }, async () => ({
+  app.get(ROUTES.API_LEGACY, { schema: apiInfoSchema }, async () => ({
     message: 'Resume Intelligence Platform API Gateway',
-    version: '1.0.0',
+    version: API_VERSION,
     endpoints: {
       upload: gatewayRoutes.upload.prefix,
       analytics: gatewayRoutes.analytics.prefix,

@@ -1,6 +1,4 @@
-import { logger } from '@resume-platform/logger';
 import { jobRepository, JobRole } from '../repositories/jobRepository';
-import { resumeRepository } from '../repositories/resumeRepository';
 import { matchRepository } from '../repositories/matchRepository';
 import { ANALYTICS } from '../constants';
 
@@ -26,6 +24,11 @@ export interface JobMatchDetail {
 export interface JobWithMatches extends JobRole {
   matchCount: number;
   avgMatchScore: number;
+}
+
+/** Match scores are stored on a 0-100 scale; report them on that scale, rounded to two decimals. */
+function roundScore(score: number): number {
+  return Math.round(score * 100) / 100;
 }
 
 class JobService {
@@ -58,7 +61,7 @@ class JobService {
     const matchedResumes = matches.map(match => ({
       resumeId: match.resume_id,
       resumeName: match.name || match.file_name || 'Unknown',
-      matchScore: Math.round(parseFloat(match.match_score || '0') * 100),
+      matchScore: roundScore(parseFloat(match.match_score || '0')),
       skillsMatched: match.matched_skills || [],
     }));
 
@@ -89,7 +92,7 @@ class JobService {
     return {
       jobId: job.id,
       jobTitle: job.title,
-      matchScore: Math.round(avgScore * 100),
+      matchScore: roundScore(avgScore),
       skillsMatched: Array.from(allMatchedSkills),
       skillsMissing: Array.from(allMissingSkills),
       experienceMatch: matches.some(m => m.experience_match === true),
@@ -112,7 +115,7 @@ class JobService {
       jobsWithMatches.push({
         ...job,
         matchCount: matches.length,
-        avgMatchScore: Math.round(avgScore * 100),
+        avgMatchScore: roundScore(avgScore),
       });
     }
 

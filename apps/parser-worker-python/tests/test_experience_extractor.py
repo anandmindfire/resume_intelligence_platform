@@ -107,7 +107,7 @@ def test_title_with_inline_date_range():
     text = "Experience\nLead Engineer 2019 - Present\nInitrode\n"
     [exp] = extract_experience(text)
     assert exp["title"] == "Lead Engineer"
-    assert exp["startDate"] == "Engineer 2019"  # see xfail below: preceding word captured
+    assert exp["startDate"] == "2019"
     assert exp["endDate"] == "Present"
 
 
@@ -117,43 +117,21 @@ def test_technology_line_is_collected():
     assert exp["technologies"] == ["terraform", "ansible", "jenkins"]
 
 
-@pytest.mark.xfail(
-    reason="BUG: experience_extractor.py:430-439 -- in 'Title | Company | Dates' lines the title is "
-    "matched first, then the company at index 1 is only assigned when no title exists, so company is "
-    "lost (the docstring format 'Company | Title' works).",
-    strict=True,
-)
 def test_title_first_pipe_format_keeps_company():
     [exp] = extract_experience("Experience\nSoftware Engineer | Globex Inc | 2017 - 2019\n")
     assert exp["company"] == "Globex Inc"
 
 
-@pytest.mark.xfail(
-    reason="BUG: experience_extractor.py:121-131 -- the 'company' branch runs before the bullet branch, "
-    "so when a title line is directly followed by a bullet, the bullet text ('- Built REST APIs') is "
-    "stored as the company and dropped from responsibilities.",
-    strict=True,
-)
 def test_bullet_after_title_is_not_used_as_company():
     [exp] = extract_experience("Experience\nSoftware Engineer | 2017 - 2019\n- Built REST APIs\n- Mentored interns\n")
     assert exp["company"] is None
     assert exp["responsibilities"] == ["Built REST APIs", "Mentored interns"]
 
 
-@pytest.mark.xfail(
-    reason="BUG: experience_extractor.py:260 (and education_extractor.py:293) use (\\w+\\s+\\d{4}) for "
-    "'Month YYYY', which captures ANY preceding word, e.g. 'Engineer 2019' becomes the start date.",
-    strict=True,
-)
 def test_date_range_start_does_not_capture_arbitrary_word():
     assert _extract_date_info("Lead Engineer 2019 - Present")["start"] == "2019"
 
 
-@pytest.mark.xfail(
-    reason="BUG: experience_extractor.py:39-47 treats any line starting with a single letter + space as "
-    "an OCR bullet artifact and strips it, so sentences starting with 'I' or 'A' lose their first word.",
-    strict=True,
-)
 def test_sentences_starting_with_a_or_i_keep_first_word():
     [exp] = extract_experience("Experience\nSoftware Engineer\nAcme\nI led a team of five engineers on payments\n")
     assert "I led a team of five engineers on payments" in exp["responsibilities"] + [exp["description"]]
@@ -284,3 +262,17 @@ def test_parse_comma_entry_requires_title():
     assert _parse_comma_separated_entry("no commas", 0, []) is None
     entry = _parse_comma_separated_entry("Engineer, Level IV, Acme", 0, [])
     assert (entry["title"], entry["company"]) == ("Engineer", "Acme")
+
+
+def test_month_year_range_keeps_only_month_and_year():
+    info = _extract_date_info("Sept 2019 - March 2021")
+    assert (info["start"], info["end"]) == ("Sept 2019", "March 2021")
+
+
+def test_pipe_format_company_first_still_works():
+    [exp] = extract_experience("Experience\nGlobex Inc | Software Engineer | 2017 - 2019\n")
+    assert (exp["company"], exp["title"]) == ("Globex Inc", "Software Engineer")
+
+
+def test_sentence_starting_with_i_is_not_a_job_title():
+    assert not _is_job_title("I led a team of five engineers on payments")

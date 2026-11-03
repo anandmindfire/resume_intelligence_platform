@@ -75,14 +75,6 @@ def test_duplicate_entries_are_removed():
     assert len(extract_education(text)) == 1
 
 
-@pytest.mark.xfail(
-    reason="BUG: education_extractor.py:47-53 checks 'is institution' before 'is degree', and "
-    "_looks_like_institution() is true for any 2-8 word line containing 'of' or mostly capitalised "
-    "words -- so undated degree lines like 'Bachelor of Science, Computer Science', 'M.S. Computer "
-    "Science' or 'B.S. Physics, Ohio State University' are stored as the institution and no degree is "
-    "ever recorded (the entry is then discarded). Only lines that also contain a year survive.",
-    strict=True,
-)
 @pytest.mark.parametrize("text", [
     "Education\nBachelor of Science, Computer Science\nStanford University\n2017",
     "Education\nM.S. Computer Science\n2019",
@@ -100,23 +92,12 @@ def test_short_institution_line_is_picked_up_by_lookback():
     assert edu["graduationDate"] == "2017"
 
 
-@pytest.mark.xfail(
-    reason="BUG: education_extractor.py:79,100-102 seeds the next degree with the previous entry's "
-    "institution and prefers it over the institution parsed from the degree line, so a second degree "
-    "inherits the first school (e.g. M.Tech at 'IIT Delhi' recorded as IIT Bombay).",
-    strict=True,
-)
 def test_second_degree_does_not_inherit_previous_institution():
     text = "Education\nB.Tech, Indian Institute of Technology Bombay, 2018\nM.Tech, IIT Delhi, 2020\n"
     edus = extract_education(text)
     assert edus[1]["institution"] == "IIT Delhi"
 
 
-@pytest.mark.xfail(
-    reason="BUG: education_extractor.py:293 date-range regex (\\w+\\s+\\d{4}) captures the word before "
-    "the year, so 'MBA 2015 - 2017' yields graduationDate 'MBA 2015 - 2017'.",
-    strict=True,
-)
 def test_graduation_date_excludes_degree_text():
     [edu] = extract_education("Education\nHarvard Business School\nMBA 2015 - 2017\n")
     assert edu["graduationDate"] == "2015 - 2017"
@@ -182,3 +163,9 @@ def test_split_degree_and_institution():
     }
     assert _split_degree_and_institution("Diploma") == {"degree": "Diploma", "institution": None}
     assert _split_degree_and_institution("B.S., ab") == {"degree": "B.S., ab", "institution": None}
+
+
+def test_acronym_institution_is_not_mistaken_for_field():
+    [edu] = extract_education("Education\nM.Tech, IIT Delhi, 2020\n")
+    assert edu["institution"] == "IIT Delhi"
+    assert edu["field"] is None
