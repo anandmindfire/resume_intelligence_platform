@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache-and-queue
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache-and-queue
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis

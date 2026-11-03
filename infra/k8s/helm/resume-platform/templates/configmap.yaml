@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "resume-platform.fullname" . }}-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "resume-platform.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.config.nodeEnv | quote }}
+  POSTGRES_HOST: {{ .Values.config.postgresHost | quote }}
+  POSTGRES_PORT: {{ .Values.config.postgresPort | quote }}
+  POSTGRES_DB: {{ .Values.config.postgresDb | quote }}
+  REDIS_HOST: {{ .Values.config.redisHost | quote }}
+  REDIS_PORT: {{ .Values.config.redisPort | quote }}
+  UPLOAD_SERVICE_URL: {{ .Values.config.uploadServiceUrl | quote }}
+  ANALYTICS_API_URL: {{ .Values.config.analyticsApiUrl | quote }}
+  API_GATEWAY_URL: {{ .Values.config.apiGatewayUrl | quote }}
+  DB_POOL_MAX: {{ .Values.config.dbPoolMax | quote }}
+  UPLOAD_MAX_CONCURRENT: {{ .Values.config.uploadMaxConcurrent | quote }}
+  UPLOAD_DIRECTORY: {{ .Values.config.uploadDirectory | quote }}
+  TESSERACT_LANG: {{ .Values.config.tesseractLang | quote }}
+  TESSERACT_CMD: {{ .Values.config.tesseractCmd | quote }}
+  OCR_DPI: {{ .Values.config.ocrDpi | quote }}
+  PYTHONUNBUFFERED: "1"
+  PYTHONPATH: "/app/src"
+  TRUST_PROXY: {{ .Values.config.trustProxy | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+

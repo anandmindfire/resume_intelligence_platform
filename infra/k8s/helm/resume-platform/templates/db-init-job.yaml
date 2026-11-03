@@ -1,0 +1,103 @@
+{{- if .Values.dbInitJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "resume-platform.fullname" . }}-db-init-job
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: db-init-job
+    app.kubernetes.io/component: database-migration
+    {{- include "resume-platform.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.dbInitJob.backoffLimit }}
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-init-job
+        {{- include "resume-platform.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for postgres service to be ready..."
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+                echo "Postgres is unavailable - sleeping 3s"
+                sleep 3
+              done
+              echo "Postgres is up and responding!"
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-secrets
+                  key: POSTGRES_USER
+      containers:
+        - name: run-init-sql
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Applying database schema and seed data from init.sql..."
+              PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /scripts/init.sql
+              echo "Database initialization completed successfully."
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: init-sql-volume
+              mountPath: /scripts/init.sql
+              subPath: init.sql
+      volumes:
+        - name: init-sql-volume
+          configMap:
+            name: {{ include "resume-platform.fullname" . }}-postgres-init
+{{- end }}

@@ -6,3 +6,7 @@ coverage
 *.log
 .env
 .DS_Store
+
+# Helm templates (contain Go template syntax not parseable as plain YAML)
+**/helm/**/templates/**
+*.tpl

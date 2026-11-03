@@ -1,0 +1,215 @@
+{{- if .Values.apiGateway.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: api-gateway
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: {{ .Values.apiGateway.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.apiGateway.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.apiGateway.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.apiGateway.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.apiGateway.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.apiGateway.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- end }}
+{{- if .Values.uploadService.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: upload-service-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: upload-service
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: upload-service
+  minReplicas: {{ .Values.uploadService.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.uploadService.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.uploadService.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.uploadService.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.uploadService.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.uploadService.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- end }}
+{{- if .Values.analyticsApi.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: analytics-api-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: analytics-api
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: analytics-api
+  minReplicas: {{ .Values.analyticsApi.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.analyticsApi.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.analyticsApi.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.analyticsApi.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.analyticsApi.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.analyticsApi.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- end }}
+{{- if .Values.frontend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-dashboard-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: frontend-dashboard
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-dashboard
+  minReplicas: {{ .Values.frontend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.frontend.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.frontend.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.frontend.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- end }}
+{{- if .Values.workers.ocr.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ocr-worker-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: ocr-worker
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ocr-worker
+  minReplicas: {{ .Values.workers.ocr.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.workers.ocr.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workers.ocr.autoscaling.targetCPUUtilizationPercentage }}
+---
+{{- end }}
+{{- if .Values.workers.parser.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: parser-worker-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: parser-worker
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: parser-worker
+  minReplicas: {{ .Values.workers.parser.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.workers.parser.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workers.parser.autoscaling.targetCPUUtilizationPercentage }}
+---
+{{- end }}
+{{- if .Values.workers.matcher.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: matcher-worker-hpa
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: matcher-worker
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: matcher-worker
+  minReplicas: {{ .Values.workers.matcher.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.workers.matcher.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workers.matcher.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+

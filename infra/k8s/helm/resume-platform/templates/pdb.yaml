@@ -1,0 +1,86 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: api-gateway
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: upload-service-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: upload-service
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: upload-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: analytics-api-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: analytics-api
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: analytics-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-dashboard-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: frontend-dashboard
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend-dashboard
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: postgres
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: redis
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+{{- end }}
+

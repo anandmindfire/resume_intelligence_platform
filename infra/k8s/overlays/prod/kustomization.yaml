@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: resume-platform
+
+resources:
+  - ../../base
+
+# In production, specify image registry and immutable release tags
+# images:
+#   - name: api-gateway-node
+#     newName: your-registry.io/resume-platform/api-gateway-node
+#     newTag: v1.0.0
+#   - name: upload-service-node
+#     newName: your-registry.io/resume-platform/upload-service-node
+#     newTag: v1.0.0
+#   - name: analytics-api-node
+#     newName: your-registry.io/resume-platform/analytics-api-node
+#     newTag: v1.0.0
+#   - name: frontend-dashboard
+#     newName: your-registry.io/resume-platform/frontend-dashboard
+#     newTag: v1.0.0
+
+patches:
+  # Example patch for TLS Ingress domain in production:
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: platform-ingress
+        namespace: resume-platform
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+      spec:
+        tls:
+          - hosts:
+              - resume-platform.example.com
+            secretName: resume-platform-tls
+        rules:
+          - host: resume-platform.example.com
+            http:
+              paths:
+                - path: /api
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: api-gateway
+                      port:
+                        number: 3000
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: frontend-dashboard
+                      port:
+                        number: 80

@@ -1,0 +1,190 @@
+# Network Policies for Resume Intelligence Platform
+# Implements Zero-Trust microsegmentation: each service only accepts traffic from verified sources.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-proxy-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: edge-proxy
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: edge-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow external traffic to Edge Reverse Proxy / Load Balancer
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: frontend-dashboard
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend-dashboard
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow traffic from Edge Proxy or Ingress Controller
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: edge-proxy
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow traffic from Edge Proxy, Ingress Controller, or Frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: edge-proxy
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-dashboard
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: upload-service-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: upload-service
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: upload-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow traffic from API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3001
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: analytics-api-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: analytics-api
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: analytics-api
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow traffic from API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3002
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow database access to authorized backend services and workers
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - api-gateway
+                  - upload-service
+                  - analytics-api
+                  - parser-worker
+                  - matcher-worker
+                  - insights-worker
+                  - export-worker
+                  - db-init-job
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-policy
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow Redis access to authorized backend services and workers
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - api-gateway
+                  - upload-service
+                  - analytics-api
+                  - ocr-worker
+                  - parser-worker
+                  - matcher-worker
+                  - insights-worker
+                  - export-worker
+      ports:
+        - protocol: TCP
+          port: 6379
