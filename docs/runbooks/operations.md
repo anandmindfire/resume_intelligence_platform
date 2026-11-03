@@ -47,6 +47,36 @@ docker stack services resume-platform
 docker service ps resume-platform_upload-service-node
 ```
 
+### Option D: Kubernetes (Production & Local)
+
+#### Via Helm (Recommended):
+
+```bash
+# Development (single-node local, RWO storage, NodePort):
+pnpm helm:install:dev
+
+# Production (multi-replica, RWX storage, Ingress, TLS, HPA):
+pnpm helm:install:prod
+```
+
+#### Via Kustomize (`kubectl`):
+
+```bash
+# Local development (Minikube / Kind / Docker Desktop):
+pnpm k8s:start:dev
+
+# Production cluster:
+pnpm k8s:start:prod
+```
+
+Check status:
+
+```bash
+pnpm k8s:status
+# Or:
+kubectl get pods,svc,hpa,ingress -n resume-platform
+```
+
 ---
 
 ## 2. Stopping the stack
@@ -66,6 +96,19 @@ pnpm run swarm:stop
 # Or: ./scripts/stop-swarm.sh
 ```
 
+### Kubernetes
+
+```bash
+# If deployed via Helm:
+pnpm helm:uninstall
+
+# If deployed via Kustomize:
+pnpm k8s:stop
+
+# To delete namespace and all PV data:
+./scripts/teardown-k8s.sh --all
+```
+
 ---
 
 ## 3. Health checks
@@ -80,14 +123,14 @@ Requires: `curl`, and for Postgres/Redis: `pg_isready`, `redis-cli` (or run scri
 
 ### Individual services (curl)
 
-| Service | URL |
-|---------|-----|
-| API Gateway | `curl -s http://localhost:3000/health` |
-| Upload Service | `curl -s http://localhost:3001/health` |
-| Analytics API | `curl -s http://localhost:3002/health` |
-| Frontend | `curl -s -o /dev/null -w "%{http_code}" http://localhost:80` |
-| Prometheus | `curl -s http://localhost:9090/-/healthy` |
-| Grafana | `curl -s http://localhost:3030/api/health` |
+| Service        | URL                                                          |
+| -------------- | ------------------------------------------------------------ |
+| API Gateway    | `curl -s http://localhost:3000/health`                       |
+| Upload Service | `curl -s http://localhost:3001/health`                       |
+| Analytics API  | `curl -s http://localhost:3002/health`                       |
+| Frontend       | `curl -s -o /dev/null -w "%{http_code}" http://localhost:80` |
+| Prometheus     | `curl -s http://localhost:9090/-/healthy`                    |
+| Grafana        | `curl -s http://localhost:3030/api/health`                   |
 
 ### Postgres and Redis
 
@@ -126,6 +169,38 @@ Use the scale override:
 ```bash
 pnpm run docker:start:scale:build
 # Or: docker-compose -f infra/docker-compose/docker-compose.microservices.yml -f infra/docker-compose/docker-compose.scale.yml up -d
+```
+
+### Kubernetes — Scaling & Autoscaling
+
+#### 1. Dynamic Auto-scaling (HPA v2)
+
+Kubernetes automatically scales pods when CPU or Memory utilization thresholds are exceeded:
+
+```bash
+# View active autoscalers and real-time metrics:
+kubectl get hpa -n resume-platform
+
+# Adjust HPA min/max limits dynamically:
+kubectl patch hpa upload-service-hpa -n resume-platform --patch '{"spec":{"maxReplicas":20,"minReplicas":5}}'
+```
+
+#### 2. Manual Replica Scaling
+
+```bash
+# Scale upload service replicas:
+kubectl scale deployment upload-service --replicas=6 -n resume-platform
+
+# Scale background OCR / parser workers:
+kubectl scale deployment ocr-worker --replicas=8 -n resume-platform
+kubectl scale deployment parser-worker --replicas=8 -n resume-platform
+kubectl scale deployment matcher-worker --replicas=6 -n resume-platform
+
+# Or update via Helm:
+helm upgrade resume-platform infra/k8s/helm/resume-platform \
+  --namespace resume-platform \
+  --set uploadService.replicas=6 \
+  --set workers.ocr.replicas=8
 ```
 
 ---
@@ -187,11 +262,24 @@ If you see **429**, increase gateway rate limit (e.g. `RATE_LIMIT_MAX`) for the 
 
 ## 7. Database migrations
 
+### Compose / Swarm:
+
 ```bash
 ./scripts/migrate-db.sh
 ```
 
 Ensure Postgres is up and `.env` (or env) has correct `POSTGRES_*` settings. Migrations live in `infra/postgres/migrations/`.
+
+### Kubernetes:
+
+```bash
+# Automated database schema initialization / migration in K8s:
+pnpm k8s:init-db
+
+# Or manually run psql inside the Postgres pod:
+POD=$(kubectl get pod -n resume-platform -l app.kubernetes.io/name=postgres -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -i "$POD" -n resume-platform -- psql -U postgres -d resume_platform < infra/postgres/init.sql
+```
 
 ---
 

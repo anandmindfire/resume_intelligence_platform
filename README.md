@@ -10,7 +10,8 @@ An automated, scalable resume analytics platform that processes resumes, extract
 - **Role matching** — Resume-to-job matching with scoring
 - **Analytics dashboard** — Skills, experience, education, match insights
 - **CSV export** — Export parsed resume data
-- **Scalable architecture** — Queue-based microservices, Docker Swarm
+- **Scalable architecture** — Queue-based microservices, Docker Swarm, and Kubernetes
+- **Production Kubernetes** — Helm 3 chart, Kustomize overlays, Ingress (`least_conn`/`ewma`), HPA, zero-trust network policies
 - **Load testing** — k6 for capacity planning
 
 ## System design
@@ -128,6 +129,7 @@ resume-intelligence-platform/
 - **Node.js** 24+ (matches `.nvmrc` and the service Docker images)
 - **pnpm** 8+ — `npm install -g pnpm`
 - **Docker** and **Docker Compose**
+- **kubectl** and **Helm 3+** (for Kubernetes deployment)
 - **Python 3.9+** (optional, for local parser/OCR development)
 
 ---
@@ -218,20 +220,67 @@ pnpm run swarm:stop
 # Or: bash scripts/stop-swarm.sh
 ```
 
+### Option D: Kubernetes (Production & Local)
+
+The platform provides a production-grade Kubernetes architecture with multi-tier load balancing (`least_conn`/`ewma`), autoscaling (HPA v2), zero-downtime rolling updates, and network policies under `infra/k8s/`.
+
+#### 1. Deploy with Helm (Recommended)
+
+```bash
+# Local development (1 replica, RWO storage, NodePort):
+pnpm helm:install:dev
+
+# Production deployment (multi-replica, RWX storage, Ingress, TLS):
+pnpm helm:install:prod
+
+# Upgrade after code/config updates:
+pnpm helm:upgrade
+
+# Uninstall:
+pnpm helm:uninstall
+```
+
+#### 2. Deploy with Kustomize (`kubectl`)
+
+```bash
+# Local development (Minikube / Kind / Docker Desktop):
+pnpm k8s:start:dev
+
+# Production cluster:
+pnpm k8s:start:prod
+
+# Teardown:
+pnpm k8s:stop
+```
+
+#### 3. Manage & Verify
+
+```bash
+# Check status of pods, services, ingress, and autoscalers:
+pnpm k8s:status
+
+# Verify / re-apply database schema and seed data in K8s:
+pnpm k8s:init-db
+```
+
+For complete details on Ingress routing, edge proxies, shared storage (RWX), and zero-trust policies, see the **[Kubernetes Guide](infra/k8s/README.md)**.
+
 ---
 
 ## Access
 
 **Application (microservices stack):**
 
-| Service        | URL                                                |
-| -------------- | -------------------------------------------------- |
-| Frontend       | http://localhost:80 (Compose) or :8080 (local dev) |
-| API Gateway    | http://localhost:3000                              |
-| Upload Service | http://localhost:3001                              |
-| Analytics API  | http://localhost:3002                              |
-| PostgreSQL     | localhost:5432                                     |
-| Redis          | localhost:6379                                     |
+| Service                  | URL                                                                   |
+| ------------------------ | --------------------------------------------------------------------- |
+| Frontend                 | http://localhost:80 (Compose) or :8080 (local dev)                    |
+| API Gateway              | http://localhost:3000                                                 |
+| Upload Service           | http://localhost:3001                                                 |
+| Analytics API            | http://localhost:3002                                                 |
+| PostgreSQL               | localhost:5432                                                        |
+| Redis                    | localhost:6379                                                        |
+| **Kubernetes (Ingress)** | http://<ingress-host>/ (Frontend) and http://<ingress-host>/api (API) |
+| **Kubernetes (Edge LB)** | http://<loadbalancer-ip>:80 (or NodePort 30080 in dev)                |
 
 **Monitoring (only when using `docker:start:full` or after `infra:start`):**
 
