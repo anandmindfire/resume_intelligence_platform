@@ -1,0 +1,55 @@
+# Development / Local Kubernetes Values (Minikube / Kind / Docker Desktop)
+apiGateway:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+uploadService:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+analyticsApi:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+frontend:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+workers:
+  ocr:
+    replicas: 1
+    autoscaling:
+      enabled: false
+  parser:
+    replicas: 1
+    autoscaling:
+      enabled: false
+  matcher:
+    replicas: 1
+    autoscaling:
+      enabled: false
+  insights:
+    replicas: 1
+  export:
+    replicas: 1
+
+edgeProxy:
+  replicas: 1
+  service:
+    type: NodePort
+
+storage:
+  uploads:
+    accessMode: ReadWriteOnce
+  exports:
+    accessMode: ReadWriteOnce
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false

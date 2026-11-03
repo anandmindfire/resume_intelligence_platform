@@ -1,0 +1,307 @@
+global:
+  imageRegistry: ''
+  imagePullSecrets: []
+
+namespace:
+  create: true
+  name: resume-platform
+
+# Platform configuration
+config:
+  nodeEnv: 'production'
+  postgresHost: 'postgres'
+  postgresPort: '5432'
+  postgresDb: 'resume_platform'
+  redisHost: 'redis'
+  redisPort: '6379'
+  uploadServiceUrl: 'http://upload-service:3001'
+  analyticsApiUrl: 'http://analytics-api:3002'
+  apiGatewayUrl: 'http://api-gateway:3000'
+  dbPoolMax: '20'
+  uploadMaxConcurrent: '50'
+  uploadDirectory: '/app/uploads'
+  tesseractLang: 'eng'
+  tesseractCmd: '/usr/bin/tesseract'
+  ocrDpi: '300'
+  trustProxy: '1'
+  corsOrigins: '*'
+
+# Credentials and secrets
+secrets:
+  postgresUser: 'postgres'
+  postgresPassword: 'postgres_production_password'
+  redisPassword: ''
+  jwtSecret: 'change_me_to_a_secure_jwt_secret_for_production'
+
+# PostgreSQL Database
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 15-alpine
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 10Gi
+    storageClass: ''
+    accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: '2'
+      memory: 2Gi
+
+# Redis Cache & Queue
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 5Gi
+    storageClass: ''
+    accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 1Gi
+
+# DB Init Job
+dbInitJob:
+  enabled: true
+  backoffLimit: 5
+
+# Shared Storage for Uploads and Exports
+storage:
+  uploads:
+    size: 20Gi
+    storageClass: ''
+    accessMode: ReadWriteMany
+  exports:
+    size: 5Gi
+    storageClass: ''
+    accessMode: ReadWriteMany
+
+# API Gateway Microservice
+apiGateway:
+  image:
+    repository: api-gateway-node
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Upload Service Microservice
+uploadService:
+  image:
+    repository: upload-service-node
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: '1'
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 75
+
+# Analytics API Microservice
+analyticsApi:
+  image:
+    repository: analytics-api-node
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+# Frontend Dashboard SPA
+frontend:
+  image:
+    repository: frontend-dashboard
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '0.5'
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Background Workers
+workers:
+  ocr:
+    image:
+      repository: ocr-worker-python
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicas: 3
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: '2'
+        memory: 2Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 75
+  parser:
+    image:
+      repository: parser-worker-python
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicas: 3
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 75
+  matcher:
+    image:
+      repository: matcher-worker-node
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicas: 3
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 75
+  insights:
+    image:
+      repository: insights-worker-python
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicas: 2
+    resources:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+  export:
+    image:
+      repository: export-worker-node
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicas: 2
+    resources:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+
+# Edge Ingress Load Balancer
+ingress:
+  enabled: true
+  className: 'nginx'
+  annotations:
+    nginx.ingress.kubernetes.io/load-balance: 'ewma'
+    nginx.ingress.kubernetes.io/proxy-body-size: '50m'
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-next-upstream: 'error timeout http_502 http_503 http_504'
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: '3'
+    nginx.ingress.kubernetes.io/proxy-buffer-size: '16k'
+  hosts:
+    - host: ''
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: api-gateway
+          port: 3000
+        - path: /
+          pathType: Prefix
+          service: frontend-dashboard
+          port: 80
+  tls: []
+
+# Standalone In-Cluster Edge Proxy LoadBalancer (for clusters without an Ingress Controller)
+edgeProxy:
+  enabled: true
+  image:
+    repository: nginx
+    tag: alpine
+    pullPolicy: IfNotPresent
+  replicas: 2
+  service:
+    type: LoadBalancer
+    port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 256Mi
+
+# High Availability & Security
+podDisruptionBudget:
+  enabled: true
+
+networkPolicy:
+  enabled: true

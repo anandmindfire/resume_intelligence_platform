@@ -1,0 +1,184 @@
+{{- if .Values.networkPolicy.enabled }}
+# Network Policies for Resume Intelligence Platform
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-proxy-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: edge-proxy
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: edge-proxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: frontend-dashboard
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend-dashboard
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: edge-proxy
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: api-gateway
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: edge-proxy
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-dashboard
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: upload-service-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: upload-service
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: upload-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3001
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: analytics-api-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: analytics-api
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: analytics-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3002
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: postgres
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - api-gateway
+                  - upload-service
+                  - analytics-api
+                  - parser-worker
+                  - matcher-worker
+                  - insights-worker
+                  - export-worker
+                  - db-init-job
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-policy
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: redis
+    {{- include "resume-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - api-gateway
+                  - upload-service
+                  - analytics-api
+                  - ocr-worker
+                  - parser-worker
+                  - matcher-worker
+                  - insights-worker
+                  - export-worker
+      ports:
+        - protocol: TCP
+          port: 6379
+{{- end }}

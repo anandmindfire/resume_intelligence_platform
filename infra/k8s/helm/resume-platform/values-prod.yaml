@@ -1,0 +1,99 @@
+# Production Values
+global:
+  imageRegistry: 'your-registry.io/resume-platform'
+
+apiGateway:
+  replicas: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+
+uploadService:
+  replicas: 4
+  autoscaling:
+    enabled: true
+    minReplicas: 4
+    maxReplicas: 20
+
+analyticsApi:
+  replicas: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+
+frontend:
+  replicas: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+workers:
+  ocr:
+    replicas: 4
+    autoscaling:
+      enabled: true
+      minReplicas: 4
+      maxReplicas: 15
+  parser:
+    replicas: 4
+    autoscaling:
+      enabled: true
+      minReplicas: 4
+      maxReplicas: 15
+  matcher:
+    replicas: 4
+    autoscaling:
+      enabled: true
+      minReplicas: 4
+      maxReplicas: 15
+  insights:
+    replicas: 3
+  export:
+    replicas: 3
+
+storage:
+  uploads:
+    size: 50Gi
+    accessMode: ReadWriteMany
+    # storageClass: "efs-sc" # e.g. AWS EFS / Azure Files / GCP Filestore / Longhorn
+  exports:
+    size: 20Gi
+    accessMode: ReadWriteMany
+    # storageClass: "efs-sc"
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: 'nginx'
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+    nginx.ingress.kubernetes.io/load-balance: 'ewma'
+    nginx.ingress.kubernetes.io/proxy-body-size: '50m'
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-next-upstream: 'error timeout http_502 http_503 http_504'
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: '3'
+  hosts:
+    - host: 'resumes.yourcompany.com'
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: api-gateway
+          port: 3000
+        - path: /
+          pathType: Prefix
+          service: frontend-dashboard
+          port: 80
+  tls:
+    - secretName: resumes-tls-certificate
+      hosts:
+        - 'resumes.yourcompany.com'
+
+podDisruptionBudget:
+  enabled: true
+
+networkPolicy:
+  enabled: true

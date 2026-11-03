@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: upload-service
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: upload-service
+    app.kubernetes.io/component: upload
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: upload-service

@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-ingress
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/name: platform-ingress
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: resume-intelligence-platform
+  annotations:
+    kubernetes.io/ingress.class: 'nginx'
+    # Production Load Balancing algorithm: ewma or least_conn
+    nginx.ingress.kubernetes.io/load-balance: 'ewma'
+    # High-capacity upload limit for multi-page resume documents
+    nginx.ingress.kubernetes.io/proxy-body-size: '50m'
+    # Generous timeouts for large file uploads and heavy OCR processing
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '60'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    # Upstream retries on transient connection or 5xx issues
+    nginx.ingress.kubernetes.io/proxy-next-upstream: 'error timeout http_502 http_503 http_504'
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: '3'
+    # Buffer tuning
+    nginx.ingress.kubernetes.io/proxy-buffer-size: '16k'
+    nginx.ingress.kubernetes.io/proxy-buffering: 'on'
+    # Correlation ID & security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Request-ID: $req_id";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+    # SSL/TLS cert-manager annotation (uncomment when cert-manager is deployed)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  # tls:
+  #   - hosts:
+  #       - resume-platform.example.com
+  #     secretName: platform-tls-secret
+  rules:
+    - http:
+        paths:
+          # API Gateway: handles all /api routes
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000
+          # Frontend: handles all root and UI static assets
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-dashboard
+                port:
+                  number: 80
