@@ -84,6 +84,7 @@ lsof -i :6379
 
 3. **Worker logs:**  
    Look for connection errors, uncaught exceptions, or repeated job failures:
+
    ```bash
    docker-compose logs -f ocr-worker parser-worker
    docker service logs -f resume-platform_parser-worker
@@ -124,12 +125,15 @@ lsof -i :6379
 
 ## 7. Where to find logs
 
-| Environment | Command |
-|-------------|---------|
-| Compose (all) | `docker-compose -f infra/docker-compose/docker-compose.microservices.yml logs -f` |
-| Compose (one service) | `docker-compose -f infra/docker-compose/docker-compose.microservices.yml logs -f upload-service` |
-| Swarm (one service) | `docker service logs -f resume-platform_upload-service-node` |
-| Swarm (all) | Loop over `docker stack services resume-platform` and run `docker service logs` for each |
+| Environment             | Command                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| Compose (all)           | `docker-compose -f infra/docker-compose/docker-compose.microservices.yml logs -f`                |
+| Compose (one service)   | `docker-compose -f infra/docker-compose/docker-compose.microservices.yml logs -f upload-service` |
+| Swarm (one service)     | `docker service logs -f resume-platform_upload-service-node`                                     |
+| Swarm (all)             | Loop over `docker stack services resume-platform` and run `docker service logs` for each         |
+| Kubernetes (all pods)   | `kubectl logs -l app.kubernetes.io/part-of=resume-intelligence-platform -n resume-platform -f`   |
+| Kubernetes (by service) | `kubectl logs -l app.kubernetes.io/name=upload-service -n resume-platform -f --tail=100`         |
+| Kubernetes (single pod) | `kubectl logs <pod-name> -n resume-platform -f`                                                  |
 
 Increase `--tail` if needed (e.g. `--tail=500`). For structured logs, grep for "error" or "ERROR".
 
@@ -168,6 +172,84 @@ docker exec -it $(docker ps -qf 'name=postgres') psql -U postgres -d resume_plat
 
 # Follow upload-service logs
 docker-compose -f infra/docker-compose/docker-compose.microservices.yml logs -f upload-service
+```
+
+---
+
+## 11. Kubernetes Troubleshooting
+
+### Pods in `CrashLoopBackOff` or `Error`
+
+1. Check the previous container termination logs:
+   ```bash
+   kubectl logs <pod-name> -n resume-platform --previous
+   ```
+2. Inspect lifecycle events and exit code:
+   ```bash
+   kubectl describe pod <pod-name> -n resume-platform
+   ```
+3. Common reasons:
+   - Missing environment variables in `platform-config` or `platform-secrets`.
+   - PostgreSQL or Redis not yet ready (check `kubectl get statefulset -n resume-platform`).
+
+### Pods in `ImagePullBackOff` or `ErrImagePull`
+
+1. If testing locally (Minikube / Kind), images must either be built in the cluster or loaded into the node:
+
+   ```bash
+   # Minikube:
+   eval $(minikube docker-env)
+   ./scripts/build-all-services.sh
+   # Or:
+   minikube image load api-gateway-node:latest
+
+   # Kind:
+   kind load docker-image api-gateway-node:latest --name <cluster-name>
+   ```
+
+2. In remote production clusters: verify image registry path in `values.yaml` or `overlays/prod/kustomization.yaml` and verify `imagePullSecrets`.
+
+### Pods in `Pending` / PersistentVolumeClaim `FailedBinding`
+
+1. Inspect PVC status:
+   ```bash
+   kubectl get pvc -n resume-platform
+   kubectl describe pvc uploads-data-pvc -n resume-platform
+   ```
+2. If using a single-node cluster (Minikube / Docker Desktop / Kind):
+   Ensure `dev` profile is used (`pnpm k8s:start:dev` or `pnpm helm:install:dev`), which uses `ReadWriteOnce` access mode.
+3. In multi-node production clusters: ensure your storage provisioner supports `ReadWriteMany` (e.g. AWS EFS CSI, GCP Filestore, Azure Files, Longhorn, or NFS).
+
+### Ingress Returning `502 Bad Gateway` / `504 Gateway Timeout`
+
+1. Verify `api-gateway` and `frontend-dashboard` pods are running and ready:
+   ```bash
+   kubectl get endpoints -n resume-platform
+   ```
+   If endpoints list is `<none>`, the readiness probe is failing.
+2. Check Ingress controller access logs:
+   ```bash
+   kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=100 -f
+   ```
+3. If uploading large resumes (>10MB):
+   Verify `nginx.ingress.kubernetes.io/proxy-body-size: "50m"` and proxy timeouts in `infra/k8s/base/ingress/ingress.yaml`.
+
+### Direct Port-Forwarding for Isolated Debugging
+
+Bypass Ingress to test individual microservices directly:
+
+```bash
+# API Gateway:
+kubectl port-forward svc/api-gateway 3000:3000 -n resume-platform
+
+# Frontend UI:
+kubectl port-forward svc/frontend-dashboard 8080:80 -n resume-platform
+
+# PostgreSQL DB:
+kubectl port-forward svc/postgres 5432:5432 -n resume-platform
+
+# Redis Cache:
+kubectl port-forward svc/redis 6379:6379 -n resume-platform
 ```
 
 For more on recovery and operations, see [Operations](operations.md) and [Incident response](incident-response.md).

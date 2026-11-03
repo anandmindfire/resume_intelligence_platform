@@ -78,24 +78,63 @@ pnpm docker:microservices   # full stack
 pnpm docker:dev            # dev (Postgres + Redis only)
 ```
 
+## Deployment Options Comparison
+
+| Feature                | Docker Compose                  | Docker Swarm                    | Kubernetes (K8s)                                                 |
+| ---------------------- | ------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| **Target Environment** | Local dev / Single-node staging | Small-to-medium clusters        | Production / Cloud / Enterprise                                  |
+| **Tooling**            | `docker-compose`                | `docker stack deploy`           | `kubectl` + `helm` 3                                             |
+| **Load Balancing**     | Docker bridge DNS round-robin   | Routing mesh (VIP)              | NGINX Ingress (`ewma`) + In-Cluster Edge Proxy (`least_conn`)    |
+| **Autoscaling**        | Manual (`--scale`)              | Manual (`docker service scale`) | Dynamic HPA v2 (CPU/Memory metrics)                              |
+| **High Availability**  | None                            | Swarm manager quorum            | Multi-node anti-affinity + PodDisruptionBudgets                  |
+| **Rolling Updates**    | Container restart               | Sequential update               | Zero-downtime RollingUpdate (`maxSurge: 1`, `maxUnavailable: 0`) |
+| **Storage Sharing**    | Local volume mounts             | Named volume / NFS              | PersistentVolumeClaims (`ReadWriteMany` for uploads/exports)     |
+| **Network Security**   | Bridge networks                 | Overlay network                 | Zero-Trust NetworkPolicies                                       |
+
 ## Kubernetes & Production Load Balancing
 
 Production-ready Kubernetes setup with ingress routing, least-connection load balancing, and Horizontal Pod Autoscaling (HPA) in `k8s/`:
 
+### 1. Helm Deployment (Recommended)
+
 ```bash
-# Deploy with Helm (dev or prod profile)
+# Development profile (1 replica, RWO storage, NodePort)
 pnpm helm:install:dev
+
+# Production profile (multi-replica, RWX storage, Ingress, TLS)
 pnpm helm:install:prod
 
-# Or deploy with kubectl kustomize
-pnpm k8s:start:dev
-pnpm k8s:start:prod
+# Upgrade existing release
+pnpm helm:upgrade
 
-# Check status
-pnpm k8s:status
+# Uninstall release
+pnpm helm:uninstall
 ```
 
-See `k8s/README.md` for full documentation on architecture, ingress, storage classes, and production readiness.
+### 2. Kustomize Deployment (`kubectl`)
+
+```bash
+# Deploy dev overlay (Minikube / Kind / Docker Desktop)
+pnpm k8s:start:dev
+
+# Deploy production overlay
+pnpm k8s:start:prod
+
+# Teardown deployment
+pnpm k8s:stop
+```
+
+### 3. Operations & Management
+
+```bash
+# Check status of pods, services, ingress, and HPAs
+pnpm k8s:status
+
+# Apply or verify database schema inside the cluster
+pnpm k8s:init-db
+```
+
+See **[`infra/k8s/README.md`](k8s/README.md)** for complete details on architecture, storage classes, ingress annotations, and production checklists.
 
 ## Docker Swarm
 
