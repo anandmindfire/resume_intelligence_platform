@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Briefcase, FileText, Menu, Upload, X } from 'lucide-react';
+import { BarChart3, Briefcase, FileText, LogOut, Menu, Upload, X } from 'lucide-react';
 import type { LayoutProps } from '../types';
 import { COPY } from '../constants';
+import { authEnabled, signOut } from '../auth/oidc';
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -75,6 +76,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Briefcase className="w-4 h-4" />
                 Jobs
               </NavLink>
+              {authEnabled && (
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-neutral-600 hover:bg-primary-50 hover:text-primary-600"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </button>
+              )}
             </div>
 
             <button
@@ -147,6 +158,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Briefcase className="w-5 h-5" />
                   Jobs
                 </NavLink>
+                {authEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => void signOut()}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-primary-50"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Sign out
+                  </button>
+                )}
               </div>
             </div>
           )}

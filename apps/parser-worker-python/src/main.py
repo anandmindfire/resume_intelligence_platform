@@ -55,7 +55,12 @@ def process_parse_job(job_data: dict) -> dict:
             url = f"{upload_service_url}{MATCHER_ENDPOINT_PATH}"
             data = json.dumps({'resumeId': resume_id}).encode('utf-8')
             
-            req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+            headers = {'Content-Type': 'application/json'}
+            # Shared secret the upload service requires on /api/internal/* (INTERNAL_API_TOKEN).
+            internal_token = os.getenv("INTERNAL_API_TOKEN")
+            if internal_token:
+                headers['X-Internal-Token'] = internal_token
+            req = urllib.request.Request(url, data=data, headers=headers)
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     logger.info(f"Queued matcher job for resume {resume_id}")

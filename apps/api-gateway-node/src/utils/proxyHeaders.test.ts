@@ -22,6 +22,26 @@ describe('rewriteRequestHeaders', () => {
     expect(headers['x-request-id']).toBe('req-1234abcd');
   });
 
+  it('never forwards the client token, internal token or a client-asserted identity', () => {
+    const headers = rewriteRequestHeaders(request, {
+      authorization: 'Bearer a.b.c',
+      'x-internal-token': 'guess',
+      'x-user-sub': 'admin',
+    });
+
+    expect(headers).not.toHaveProperty('authorization');
+    expect(headers).not.toHaveProperty('x-internal-token');
+    expect(headers).not.toHaveProperty('x-user-sub');
+  });
+
+  it('forwards the verified subject when the request was authenticated', () => {
+    const headers = rewriteRequestHeaders(
+      { ...request, user: { sub: 'user-42', scopes: [] } },
+      { 'x-user-sub': 'admin' }
+    );
+    expect(headers['x-user-sub']).toBe('user-42');
+  });
+
   it('does not mutate the incoming headers', () => {
     const incoming = { accept: '*/*' };
     rewriteRequestHeaders(request, incoming);

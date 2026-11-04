@@ -6,7 +6,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { buildSinglePart } from './multipart.js';
+import { buildSinglePart, authHeaders } from './multipart.js';
 
 export const options = {
   vus: 2,
@@ -20,9 +20,13 @@ export const options = {
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 export default function () {
-  const { body, boundary } = buildSinglePart('resume.pdf', 'dummy pdf content', 'application/pdf');
+  const { body, boundary } = buildSinglePart(
+    'resume.pdf',
+    '%PDF-1.4\n% dummy pdf content',
+    'application/pdf'
+  );
   const res = http.post(`${BASE_URL}/api/upload/single`, body, {
-    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, ...authHeaders() },
     timeout: '30s',
   });
 

@@ -22,7 +22,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
-      - "9090:9090"
+      - '127.0.0.1:9090:9090'
     restart: unless-stopped
 
   # Grafana for visualization (port 3030 to avoid conflict with upload-service:3001)
@@ -36,7 +36,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - "3030:3000"
+      - '127.0.0.1:3030:3000'
     networks:
       - monitoring
     depends_on:
@@ -51,7 +51,7 @@ services:
       - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/alertmanager
     ports:
-      - "9093:9093"
+      - '127.0.0.1:9093:9093'
     networks:
       - monitoring
     restart: unless-stopped
@@ -64,7 +64,7 @@ services:
       - ../logging/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
     ports:
-      - "3100:3100"
+      - '127.0.0.1:3100:3100'
     networks:
       - logging
     command: -config.file=/etc/loki/local-config.yaml
@@ -98,7 +98,7 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     ports:
-      - "9100:9100"
+      - '127.0.0.1:9100:9100'
     networks:
       - monitoring
     restart: unless-stopped
@@ -108,9 +108,13 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-resume_platform}?sslmode=disable"
+      # Credentials are passed separately rather than interpolated into a URL, so passwords containing
+      # URL-special characters (@ : / ? #) work and aren't mangled.
+      DATA_SOURCE_URI: 'postgres:5432/${POSTGRES_DB:-resume_platform}?sslmode=disable'
+      DATA_SOURCE_USER: '${POSTGRES_USER:-postgres}'
+      DATA_SOURCE_PASS: '${POSTGRES_PASSWORD:-postgres}'
     ports:
-      - "9187:9187"
+      - '127.0.0.1:9187:9187'
     networks:
       - resume-platform
     restart: unless-stopped
@@ -120,9 +124,10 @@ services:
     image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     environment:
-      REDIS_ADDR: "redis:6379"
+      REDIS_ADDR: 'redis:6379'
+      REDIS_PASSWORD: '${REDIS_PASSWORD:-}'
     ports:
-      - "9121:9121"
+      - '127.0.0.1:9121:9121'
     networks:
       - resume-platform
     restart: unless-stopped

@@ -75,7 +75,49 @@ All Node.js APIs (API Gateway, Upload Service, Analytics API) use industry-stand
 - **Client identity behind proxies** — `request.ip` (and therefore per-IP rate limiting) only reflects the real client if the service is told how many proxies sit in front of it via `TRUST_PROXY`: `1` (one hop, e.g. nginx → gateway, or gateway → upstream service), `true` (trust every hop), a CIDR list, or unset/`false` (default: don't trust `X-Forwarded-For`). The gateway always sends the resolved client IP to upstreams. **Set `TRUST_PROXY=1` on the gateway and on the upload/analytics services when they are only reachable through their proxy; leave it unset on any service whose port is published directly**, otherwise clients can choose their own rate-limit identity. Without it, upstream rate limits count every user as the gateway's single address.
 - **Upstream failures** — The gateway applies a per-route timeout and answers `504` (timeout), `503` (upstream down) or `502` (connection dropped) with `{ success: false, error, requestId }`, never the raw upstream error.
 
+- **Shared rate-limit counters** — By default each replica counts in memory, so N replicas allow N × the limit. Set `RATE_LIMIT_STORE=redis` to keep counters in Redis (shared by all replicas); if Redis is unreachable requests are allowed rather than failed.
+- **Service-to-service auth** — `/api/internal/*` on the upload service (called by the parser worker) requires `X-Internal-Token` matching `INTERNAL_API_TOKEN`. In production (`NODE_ENV=production`) an unset token refuses every internal call; set the same value on the upload service and parser worker (`openssl rand -hex 32`).
+
 Tune limits per environment (e.g. higher for load tests, lower for public APIs).
+
+### Authentication (OIDC)
+
+End users sign in with any OpenID Connect provider (Keycloak, Okta, Auth0, Entra ID, Cognito…). The dashboard uses the Authorization Code flow with PKCE (no client secret in the browser) and sends the access token as `Authorization: Bearer …`; the **API gateway** verifies it on every request.
+
+- **Gateway verification** — signature via the issuer's JWKS (discovered from `/.well-known/openid-configuration`, cached), `iss`, `aud`, `exp`/`nbf` (30 s skew), `sub`, and optionally a scope. Only asymmetric algorithms are accepted (no `HS*`, no `none`). Routes are protected by default; only `/health`, `/api`, `/api/v1` and `/docs*` are public. Failures return `401`/`403` with an RFC 6750 `WWW-Authenticate` header and no detail.
+- **Upstreams** — the gateway strips the client's `Authorization`, `X-Internal-Token` and `X-User-Sub` headers and forwards the verified subject as `X-User-Sub`. Upload/analytics services are not reachable except through the gateway (see network exposure below).
+- **Production is fail-closed** — with `NODE_ENV=production` the gateway refuses to start unless `OIDC_ISSUER` and `OIDC_AUDIENCE` are set. `AUTH_DISABLED=true` is an explicit opt-out for isolated load tests only. Outside production, leaving them unset disables auth (local development).
+- **Frontend** — tokens are kept in `sessionStorage` (per tab, cleared on close) and renewed silently; a `401` sends the user back through login. Post-login return paths must be same-origin. Original files are fetched with the token and opened as blob URLs (a plain link can't send it).
+
+| Setting                                      | Where                          | Purpose                                                                                     |
+| -------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `OIDC_ISSUER`                                | gateway                        | Issuer URL (exact `iss` value)                                                              |
+| `OIDC_AUDIENCE`                              | gateway                        | Required `aud` of access tokens                                                             |
+| `OIDC_REQUIRED_SCOPE`                        | gateway (optional)             | Scope every token must carry                                                                |
+| `OIDC_JWKS_URI`                              | gateway (optional)             | Skip discovery and use this JWKS URL                                                        |
+| `VITE_OIDC_AUTHORITY`, `VITE_OIDC_CLIENT_ID` | frontend **build args**        | Issuer and public SPA client id; login is enabled when both are set                         |
+| `VITE_OIDC_SCOPE`, `VITE_OIDC_AUDIENCE`      | frontend build args (optional) | Requested scopes (include the API scope if required); `audience` param for Auth0-style IdPs |
+| `OIDC_ISSUER_ORIGIN`                         | frontend container             | `scheme://host` of the issuer, added to the CSP                                             |
+
+**IdP setup:** register a _public_ SPA client with redirect URIs `https://<app>/auth/callback` and `https://<app>/auth/silent-renew`, post-logout URI `https://<app>/`, and make its access tokens carry `aud = OIDC_AUDIENCE` (and the required scope, if any). For load tests pass a token with `ACCESS_TOKEN=… scripts/run-k6.sh`.
+
+### File uploads
+
+Uploaded resumes are untrusted input and are handled accordingly:
+
+- **Content, not claims** — The client's MIME type is only a first filter. Every file's magic bytes are checked (PDF, PNG, JPEG, DOCX) and must match the declared type; the _detected_ type is what is stored and sent to workers. DOCX archives are inspected without extraction: macro-enabled documents, ZIP64, >1000 entries, >100 MiB uncompressed or >100:1 compression ratio are rejected (zip bombs).
+- **Storage** — Files are written under a random UUID + detected extension, never the client's file name, with mode `0600` and no-overwrite (`wx`). The original name is sanitized (no path components, control or quote characters, ≤200 chars) and used for display only.
+- **Limits** — `UPLOAD_MAX_SIZE` (default 10 MiB), `UPLOAD_MAX_FILES` per request (default 20), plus caps on form fields, parts and headers; nginx rejects bodies over 12 MiB before they reach Node.
+- **Serving** — Downloads use an injection-safe `Content-Disposition` (ASCII fallback + RFC 5987), `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`. Only PDF/PNG/JPEG render inline; images get a `sandbox` CSP; DOCX is always an `application/octet-stream` attachment. Stored paths are checked to be inside the uploads directory before any read or delete, and resume ids must be UUIDs.
+- **Processing** — The OCR worker only opens files that resolve (after symlinks) inside `UPLOAD_DIRECTORY`, rejects unknown MIME types instead of guessing, renders at most 20 PDF pages, and refuses images over 50 MP (decompression bombs). It mounts the uploads volume read-only.
+- **No path leaks** — API responses never include `file_path`, and error messages returned to clients don't contain filesystem or database details.
+
+### Containers and network exposure
+
+- Every image runs as a non-root user (`node`/uid 1000 for Node services, `app`/uid 1000 for Python workers, nginx-unprivileged/uid 101 on port 8080 for the frontend). Kubernetes pods enforce `runAsNonRoot` with the `RuntimeDefault` seccomp profile.
+  **Upgrading an existing Docker volume:** volumes created by earlier (root) images are owned by root; fix once with `docker run --rm -v <volume>:/data alpine chown -R 1000:1000 /data`.
+- Local Compose binds Postgres, Redis and the service ports to `127.0.0.1` only. Production Compose publishes only the frontend (`80 → 8080`); the gateway, upload and analytics services, Postgres and Redis are reachable only on the internal network, and Redis requires `REDIS_PASSWORD`.
+- Kubernetes network policies start from a namespace-wide default-deny; the frontend and gateway admit only the edge proxy and the `ingress-nginx` namespace (adjust the namespace label if your ingress controller lives elsewhere).
 
 ---
 

@@ -22,10 +22,11 @@
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^4.2.0",
     "@resume-platform/config": "*",
+    "@resume-platform/http-kit": "*",
     "@resume-platform/logger": "*",
     "axios": "^1.6.0",
     "fastify": "^4.24.3",
-    "@resume-platform/http-kit": "*"
+    "jose": "^5.10.0"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

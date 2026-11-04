@@ -14,6 +14,7 @@ import type { ResumeDetailModalProps } from '../types';
 import { COPY } from '../constants';
 import { resumeService } from '../services/resumeService';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { handleResumeFileClick } from '../auth/fileLinks';
 
 const RESUME_DETAIL_MODAL_TITLE_ID = 'resume-detail-modal-title';
 
@@ -272,6 +273,7 @@ export const ResumeDetailModal: React.FC<ResumeDetailModalProps> = ({
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => handleResumeFileClick(e, resume.id, resume.file_name)}
                 className="btn btn-secondary flex items-center gap-2 text-primary-700 hover:text-primary-800"
               >
                 <FileText className="w-4 h-4" />

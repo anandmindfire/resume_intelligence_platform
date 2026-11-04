@@ -134,6 +134,9 @@ importers:
       fastify:
         specifier: ^4.24.3
         version: 4.29.1
+      jose:
+        specifier: ^5.10.0
+        version: 5.10.0
     devDependencies:
       '@types/node':
         specifier: ^24.19.2
@@ -190,6 +193,9 @@ importers:
       lucide-react:
         specifier: ^0.294.0
         version: 0.294.0(react@18.3.1)
+      oidc-client-ts:
+        specifier: ^3.5.0
+        version: 3.5.0
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -374,6 +380,9 @@ importers:
       fastify:
         specifier: ^4.24.3
         version: 4.29.1
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.9.1
     devDependencies:
       '@types/node':
         specifier: ^24.19.2
@@ -5843,6 +5852,13 @@ packages:
     hasBin: true
     dev: true
 
+  /jose@5.10.0:
+    resolution:
+      {
+        integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==,
+      }
+    dev: false
+
   /js-tokens@10.0.0:
     resolution:
       {
@@ -6007,6 +6023,14 @@ packages:
       object.assign: 4.1.7
       object.values: 1.2.1
     dev: true
+
+  /jwt-decode@4.0.0:
+    resolution:
+      {
+        integrity: sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==,
+      }
+    engines: { node: '>=18' }
+    dev: false
 
   /keyv@4.5.4:
     resolution:
@@ -6675,6 +6699,16 @@ packages:
       {
         integrity: sha512-42CPE9AhahZRsMNslczq0ctAEtqk8Eka26QofnqC346BZdHDySk3LWka23LI7ULIw11NmltpiLagIq8gBozxTw==,
       }
+    dev: false
+
+  /oidc-client-ts@3.5.0:
+    resolution:
+      {
+        integrity: sha512-l2q8l9CTCTOlbX+AnK4p3M+4CEpKpyQhle6blQkdFhm0IsBqsxm15bYaSa11G7pWdsYr6epdsRZxJpCyCRbT8A==,
+      }
+    engines: { node: '>=18' }
+    dependencies:
+      jwt-decode: 4.0.0
     dev: false
 
   /on-exit-leak-free@2.1.2:

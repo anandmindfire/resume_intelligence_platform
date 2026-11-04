@@ -61,7 +61,8 @@ FROM base AS runner
 WORKDIR /app
 
 # Create uploads directory
-RUN mkdir -p /app/uploads
+# Writable only by the unprivileged runtime user; 0700 keeps other users out
+RUN mkdir -p /app/uploads && chown node:node /app/uploads && chmod 0700 /app/uploads
 
 # Copy root package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -98,5 +99,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 EXPOSE 3001
 
 VOLUME ["/app/uploads"]
+
+# Run as the unprivileged `node` user (uid 1000) from the base image, never root
+USER node
 
 CMD ["node", "dist/index.js"]

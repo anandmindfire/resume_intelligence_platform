@@ -87,6 +87,17 @@ def test_matcher_url_is_configurable(monkeypatch, parser, db, urlopen):
     assert urlopen.call_args.args[0].full_url == f"http://localhost:9999{MATCHER_ENDPOINT_PATH}"
 
 
+def test_matcher_call_sends_internal_token_when_configured(monkeypatch, parser, db, urlopen):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "s3cret")
+    main.process_parse_job(dict(JOB))
+    assert urlopen.call_args.args[0].get_header("X-internal-token") == "s3cret"
+
+
+def test_matcher_call_omits_internal_token_when_unset(parser, db, urlopen):
+    main.process_parse_job(dict(JOB))
+    assert urlopen.call_args.args[0].get_header("X-internal-token") is None
+
+
 def test_save_happens_before_status_update(parser, db, urlopen):
     main.process_parse_job(dict(JOB))
     names = [c[0] for c in db.method_calls]

@@ -63,7 +63,9 @@ describe('repository pools', () => {
 
 describe('AnalyticsRepository', () => {
   it('getTopSkills parses counts to integers', async () => {
-    client.query.mockResolvedValueOnce(rows({ skill: 'python', count: '12' }, { skill: 'sql', count: '7' }));
+    client.query.mockResolvedValueOnce(
+      rows({ skill: 'python', count: '12' }, { skill: 'sql', count: '7' })
+    );
 
     await expect(analyticsRepository.getTopSkills(5)).resolves.toEqual([
       { skill: 'python', count: 12 },
@@ -84,7 +86,9 @@ describe('AnalyticsRepository', () => {
   });
 
   it('getExperienceStats parses numeric strings', async () => {
-    client.query.mockResolvedValueOnce(rows({ avg_years: '4.25', min_years: '0.5', max_years: '12' }));
+    client.query.mockResolvedValueOnce(
+      rows({ avg_years: '4.25', min_years: '0.5', max_years: '12' })
+    );
 
     await expect(analyticsRepository.getExperienceStats()).resolves.toEqual({
       avg_years: 4.25,
@@ -96,16 +100,26 @@ describe('AnalyticsRepository', () => {
 
   it('getExperienceStats returns zeros when there is no data', async () => {
     client.query.mockResolvedValueOnce(rows({ avg_years: null, min_years: null, max_years: null }));
-    await expect(analyticsRepository.getExperienceStats()).resolves.toEqual({ avg_years: 0, min_years: 0, max_years: 0 });
+    await expect(analyticsRepository.getExperienceStats()).resolves.toEqual({
+      avg_years: 0,
+      min_years: 0,
+      max_years: 0,
+    });
 
     client.query.mockResolvedValueOnce(rows());
-    await expect(analyticsRepository.getExperienceStats()).resolves.toEqual({ avg_years: 0, min_years: 0, max_years: 0 });
+    await expect(analyticsRepository.getExperienceStats()).resolves.toEqual({
+      avg_years: 0,
+      min_years: 0,
+      max_years: 0,
+    });
   });
 
   it('getEducationStats parses counts and defaults the limit to 10', async () => {
     client.query.mockResolvedValueOnce(rows({ institution: 'MIT', count: '3' }));
 
-    await expect(analyticsRepository.getEducationStats()).resolves.toEqual([{ institution: 'MIT', count: 3 }]);
+    await expect(analyticsRepository.getEducationStats()).resolves.toEqual([
+      { institution: 'MIT', count: 3 },
+    ]);
     expect(client.query).toHaveBeenCalledWith(GET_EDUCATION_STATS, [10]);
   });
 
@@ -157,9 +171,22 @@ describe('JobRepository', () => {
   it('create inserts with nulls for missing optional fields', async () => {
     client.query.mockResolvedValueOnce(rows(dbJob));
 
-    await jobRepository.create({ title: 'Backend Engineer', requiredSkills: ['Node.js'], preferredSkills: [], keywords: [] });
+    await jobRepository.create({
+      title: 'Backend Engineer',
+      requiredSkills: ['Node.js'],
+      preferredSkills: [],
+      keywords: [],
+    });
 
-    expect(client.query).toHaveBeenCalledWith(INSERT_JOB, ['Backend Engineer', ['Node.js'], [], null, [], null, null]);
+    expect(client.query).toHaveBeenCalledWith(INSERT_JOB, [
+      'Backend Engineer',
+      ['Node.js'],
+      [],
+      null,
+      [],
+      null,
+      null,
+    ]);
   });
 
   it('create passes every provided field', async () => {
@@ -201,7 +228,9 @@ describe('JobRepository', () => {
   it('bulkCreate skips an existing title whose row disappears', async () => {
     client.query.mockResolvedValueOnce(rows({ id: 'gone' })).mockResolvedValueOnce(rows());
 
-    const result = await jobRepository.bulkCreate([{ title: 'Gone', requiredSkills: [], preferredSkills: [], keywords: [] }]);
+    const result = await jobRepository.bulkCreate([
+      { title: 'Gone', requiredSkills: [], preferredSkills: [], keywords: [] },
+    ]);
     expect(result).toEqual([]);
   });
 
@@ -215,7 +244,9 @@ describe('MatchRepository', () => {
   it('findByRole without a role passes minScore, limit, offset', async () => {
     client.query.mockResolvedValueOnce(rows({ id: 'm1' }));
 
-    await expect(matchRepository.findByRole(undefined, 50, 10, 20)).resolves.toEqual([{ id: 'm1' }]);
+    await expect(matchRepository.findByRole(undefined, 50, 10, 20)).resolves.toEqual([
+      { id: 'm1' },
+    ]);
     const [sql, params] = client.query.mock.calls[0];
     expect(sql).not.toContain('rm.role_id = $2');
     expect(params).toEqual([50, 10, 20]);
@@ -242,7 +273,9 @@ describe('MatchRepository', () => {
 
   it('getRolesWithMatches filters by minimum score', async () => {
     client.query.mockResolvedValueOnce(rows({ id: 'r', title: 'T' }));
-    await expect(matchRepository.getRolesWithMatches(40)).resolves.toEqual([{ id: 'r', title: 'T' }]);
+    await expect(matchRepository.getRolesWithMatches(40)).resolves.toEqual([
+      { id: 'r', title: 'T' },
+    ]);
     expect(client.query).toHaveBeenCalledWith(GET_ROLES_WITH_MATCHES, [40]);
   });
 
@@ -262,7 +295,9 @@ describe('ResumeRepository', () => {
   it('findAll builds the filtered query with paging and sort', async () => {
     client.query.mockResolvedValueOnce(rows({ id: 'r1' }));
 
-    await expect(resumeRepository.findAll({ keyword: 'jane' }, 5, 10, 'name', 'asc')).resolves.toEqual([{ id: 'r1' }]);
+    await expect(
+      resumeRepository.findAll({ keyword: 'jane' }, 5, 10, 'name', 'asc')
+    ).resolves.toEqual([{ id: 'r1' }]);
     const [sql, params] = client.query.mock.calls[0];
     expect(sql).toContain('ORDER BY name asc');
     expect(params).toEqual(['%jane%', 5, 10]);
@@ -291,8 +326,23 @@ describe('ResumeRepository', () => {
     await expect(resumeRepository.findById('missing')).resolves.toBeNull();
   });
 
+  it('never returns the server-side file path to clients', async () => {
+    client.query.mockResolvedValueOnce(
+      rows({ id: 'r1', file_path: '/app/uploads/x.pdf', file_name: 'x.pdf' })
+    );
+    await expect(resumeRepository.findById('r1')).resolves.toEqual({
+      id: 'r1',
+      file_name: 'x.pdf',
+    });
+
+    client.query.mockResolvedValueOnce(rows({ id: 'r2', file_path: '/app/uploads/y.pdf' }));
+    await expect(resumeRepository.findAll({})).resolves.toEqual([{ id: 'r2' }]);
+  });
+
   it('count and countByStatus parse counts', async () => {
-    client.query.mockResolvedValueOnce(rows({ count: '120' })).mockResolvedValueOnce(rows({ count: '97' }));
+    client.query
+      .mockResolvedValueOnce(rows({ count: '120' }))
+      .mockResolvedValueOnce(rows({ count: '97' }));
 
     await expect(resumeRepository.count()).resolves.toBe(120);
     await expect(resumeRepository.countByStatus('matched')).resolves.toBe(97);
@@ -308,7 +358,11 @@ describe('ResumeRepository', () => {
   });
 
   it('close ends the pools', async () => {
-    await Promise.all([resumeRepository.close(), matchRepository.close(), analyticsRepository.close()]);
+    await Promise.all([
+      resumeRepository.close(),
+      matchRepository.close(),
+      analyticsRepository.close(),
+    ]);
     expect(pool.end).toHaveBeenCalledTimes(3);
   });
 });

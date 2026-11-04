@@ -15,6 +15,7 @@ _ENV_VARS = (
     "POSTGRES_DB",
     "LOG_FORMAT",
     "LOG_LEVEL",
+    "INTERNAL_API_TOKEN",
 )
 
 

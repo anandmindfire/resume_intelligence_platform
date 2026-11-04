@@ -87,4 +87,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 EXPOSE 3000
 
 # Use node directly (no need for pnpm in production)
+# Run as the unprivileged `node` user (uid 1000) from the base image, never root
+USER node
+
 CMD ["node", "dist/index.js"]

@@ -1,5 +1,18 @@
 # Network Policies for Resume Intelligence Platform
 # Implements Zero-Trust microsegmentation: each service only accepts traffic from verified sources.
+# Default deny: any pod not matched by an allow rule below receives no ingress traffic.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: resume-platform
+  labels:
+    app.kubernetes.io/part-of: resume-intelligence-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -40,10 +53,13 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: edge-proxy
-        - namespaceSelector: {}
+        # Ingress controller pods only (a bare `namespaceSelector: {}` would admit every pod in the cluster)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
       ports:
         - protocol: TCP
-          port: 80
+          port: 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -68,7 +84,10 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: frontend-dashboard
-        - namespaceSelector: {}
+        # Ingress controller pods only (a bare `namespaceSelector: {}` would admit every pod in the cluster)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
       ports:
         - protocol: TCP
           port: 3000
@@ -88,11 +107,14 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Only allow traffic from API Gateway
+    # API Gateway (public routes) and parser-worker (/api/internal/queue/matcher, token-protected)
     - from:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: parser-worker
       ports:
         - protocol: TCP
           port: 3001

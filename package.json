@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Resume Intelligence Platform - Automated resume parsing and analytics",
   "private": true,
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "pnpm@10.28.0",
   "scripts": {
     "prepare": "node -e \"if (process.env.HUSKY === '0') process.exit(0); try { require.resolve('husky'); } catch (e) { process.exit(0); } require('child_process').execSync('husky', { stdio: 'inherit' });\"",
     "build": "turbo run build",

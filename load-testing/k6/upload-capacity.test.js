@@ -5,7 +5,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { buildSinglePart } from './multipart.js';
+import { buildSinglePart, authHeaders } from './multipart.js';
 import { Rate, Trend } from 'k6/metrics';
 
 const errorRate = new Rate('errors');
@@ -32,9 +32,13 @@ export const options = {
 };
 
 export default function () {
-  const { body, boundary } = buildSinglePart('resume.pdf', 'dummy pdf content for load test', 'application/pdf');
+  const { body, boundary } = buildSinglePart(
+    'resume.pdf',
+    '%PDF-1.4\n% dummy pdf content for load test',
+    'application/pdf'
+  );
   const params = {
-    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, ...authHeaders() },
     timeout: '60s',
   };
 

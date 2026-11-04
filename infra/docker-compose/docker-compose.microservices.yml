@@ -4,8 +4,10 @@ services:
       context: ../..
       dockerfile: apps/api-gateway-node/Dockerfile
     image: api-gateway:latest
+    # Published for load testing (scripts/run-k6.sh). Remove in production so all traffic goes
+    # through the frontend nginx, otherwise TRUST_PROXY must stay unset on the gateway.
     ports:
-      - "3000:3000"
+      - '3000:3000'
     env_file: ../../.env
     environment:
       - UPLOAD_SERVICE_URL=http://upload-service:3001
@@ -16,7 +18,13 @@ services:
       - analytics-api
       - upload-service
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -27,8 +35,7 @@ services:
       context: ../..
       dockerfile: apps/analytics-api-node/Dockerfile
     image: analytics-api-node:latest
-    ports:
-      - "3002:3002"
+    # Internal service: no host port; reachable only via the api-gateway on the overlay network
     env_file: ../../.env
     networks:
       - resume-platform
@@ -36,7 +43,13 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -46,8 +59,7 @@ services:
       context: ../..
       dockerfile: apps/upload-service-node/Dockerfile
     image: upload-service-node:latest
-    ports:
-      - "3001:3001"
+    # Internal service: no host port; reachable only via the api-gateway on the overlay network
     env_file: ../../.env
     environment:
       - DB_POOL_MAX=50
@@ -62,7 +74,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -158,12 +176,12 @@ services:
       dockerfile: apps/frontend-dashboard/Dockerfile
     image: frontend-dashboard:latest
     ports:
-      - "80:80"
+      - '80:8080'
     env_file: ../../.env
     networks:
       - resume-platform
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost/']
       interval: 30s
       timeout: 3s
       retries: 3
@@ -180,7 +198,7 @@ services:
     networks:
       - resume-platform
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -193,7 +211,7 @@ services:
     networks:
       - resume-platform
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 3s
       retries: 5
