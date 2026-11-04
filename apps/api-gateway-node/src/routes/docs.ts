@@ -5,7 +5,10 @@ import { fetchServiceSpec, rewriteSpecForGateway } from '../services/docsService
 import { sendError } from '../utils/response';
 import { DOCS_ROUTE_PREFIX } from '../plugins/swagger';
 
-async function getServiceSpec(request: FastifyRequest<{ Params: { service: string } }>, reply: FastifyReply) {
+async function getServiceSpec(
+  request: FastifyRequest<{ Params: { service: string } }>,
+  reply: FastifyReply
+) {
   const source = docsSources[request.params.service];
   if (!source) {
     return sendError(reply, `Unknown service "${request.params.service}"`, 404);
@@ -23,5 +26,9 @@ async function getServiceSpec(request: FastifyRequest<{ Params: { service: strin
 
 /** Upstream specs re-published with gateway paths (listed in the Swagger UI definition selector). */
 export async function registerDocsRoutes(app: FastifyInstance) {
-  app.get(`${DOCS_ROUTE_PREFIX}/services/:service/json`, { schema: { hide: true } }, getServiceSpec);
+  app.get(
+    `${DOCS_ROUTE_PREFIX}/services/:service/json`,
+    { schema: { hide: true } },
+    getServiceSpec
+  );
 }

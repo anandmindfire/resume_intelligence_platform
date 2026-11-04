@@ -51,6 +51,14 @@ const uploadDir = config.upload.directory!;
 
 const PDF = 'application/pdf';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+/** Name files are stored under: a random UUID plus the detected type's extension. */
+const STORED_PDF_RE = /^[0-9a-f-]{36}\.pdf$/;
+const STORED_PNG_RE = /^[0-9a-f-]{36}\.png$/;
+/** Resume ids are UUIDs; anything else is rejected before reaching the database. */
+const RID = '11111111-2222-4333-8444-555555555555';
+const UNKNOWN_RID = '99999999-2222-4333-8444-555555555555';
+/** Smallest content that passes the PNG magic-byte check. */
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 type Part = { field: string; filename?: string; contentType?: string; content: string | Buffer };
 
@@ -168,7 +176,7 @@ describe('upload-service app', () => {
       });
 
       const [stored] = await storedFiles();
-      expect(stored).toMatch(/^jane-\d+-[a-z0-9]+\.pdf$/);
+      expect(stored).toMatch(STORED_PDF_RE);
       const filePath = path.join(uploadDir, stored);
       await expect(fs.readFile(filePath, 'utf8')).resolves.toBe('%PDF-1.4 resume');
 
@@ -207,7 +215,7 @@ describe('upload-service app', () => {
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'File type text/plain not allowed' });
+      expect(res.json()).toEqual({ error: 'File type not allowed' });
       expect(await storedFiles()).toEqual([]);
       expect(db.createResume).not.toHaveBeenCalled();
     });
@@ -232,7 +240,9 @@ describe('upload-service app', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/upload/single',
-        ...multipart([resumeFile('exact.pdf', PDF, 'x'.repeat(config.upload.maxSize))]),
+        ...multipart([
+          resumeFile('exact.pdf', PDF, '%PDF-' + 'x'.repeat(config.upload.maxSize - 5)),
+        ]),
       });
 
       expect(res.statusCode).toBe(201);
@@ -291,7 +301,7 @@ describe('upload-service app', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/upload/multiple',
-        ...many(resumeFile('a.pdf'), resumeFile('b.png', 'image/png', 'png')),
+        ...many(resumeFile('a.pdf'), resumeFile('b.png', 'image/png', PNG_BYTES)),
       });
 
       expect(res.statusCode).toBe(201);
@@ -307,11 +317,13 @@ describe('upload-service app', () => {
 
       const stored = await storedFiles();
       expect(stored).toHaveLength(2);
-      // Same naming scheme as a single upload: <original base name>-<timestamp>-<random>.<ext>.
-      expect(stored.sort()).toEqual([
-        expect.stringMatching(/^a-\d+-[a-z0-9]+\.pdf$/),
-        expect.stringMatching(/^b-\d+-[a-z0-9]+\.png$/),
-      ]);
+      // Same naming scheme as a single upload: <uuid>.<detected extension>; client names never hit disk.
+      expect(stored).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(STORED_PDF_RE),
+          expect.stringMatching(STORED_PNG_RE),
+        ])
+      );
       expect(db.createResume).toHaveBeenCalledTimes(2);
       expect(queue.queueOCRJob).toHaveBeenCalledTimes(2);
     });
@@ -334,7 +346,7 @@ describe('upload-service app', () => {
         ...many(
           resumeFile('a.pdf'),
           resumeFile('c.txt', 'text/plain', 'x'.repeat(4096)),
-          resumeFile('b.png', 'image/png', 'png')
+          resumeFile('b.png', 'image/png', PNG_BYTES)
         ),
       });
 
@@ -346,7 +358,7 @@ describe('upload-service app', () => {
         results: expect.arrayContaining([
           { resumeId: expect.stringMatching(UUID_RE), fileName: 'a.pdf', status: 'uploaded' },
           { resumeId: expect.stringMatching(UUID_RE), fileName: 'b.png', status: 'uploaded' },
-          { fileName: 'c.txt', status: 'failed', error: 'File type text/plain not allowed' },
+          { fileName: 'c.txt', status: 'failed', error: 'File type not allowed' },
         ]),
       });
       expect(await storedFiles()).toHaveLength(2);
@@ -381,7 +393,7 @@ describe('upload-service app', () => {
       expect(res.json()).toEqual({
         error: 'No files uploaded',
         results: [
-          { fileName: 'c.txt', status: 'failed', error: 'File type text/plain not allowed' },
+          { fileName: 'c.txt', status: 'failed', error: 'File type not allowed' },
           {
             fileName: 'big.pdf',
             status: 'failed',
@@ -408,7 +420,7 @@ describe('upload-service app', () => {
       expect(res.json().results[0]).toEqual({
         fileName: 'a.pdf',
         status: 'failed',
-        error: 'duplicate key',
+        error: 'Failed to process file',
       });
       expect(await storedFiles()).toHaveLength(1);
     });
@@ -418,7 +430,7 @@ describe('upload-service app', () => {
     it('returns the resume status', async () => {
       const createdAt = new Date('2026-01-02T03:04:05Z');
       db.getResume.mockResolvedValueOnce({
-        id: 'r-1',
+        id: RID,
         status: 'parsed',
         file_name: 'jane.pdf',
         file_path: '/x',
@@ -427,28 +439,28 @@ describe('upload-service app', () => {
         created_at: createdAt,
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/r-1/status' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/${RID}/status` });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({
-        resumeId: 'r-1',
+        resumeId: RID,
         status: 'parsed',
         fileName: 'jane.pdf',
         createdAt: createdAt.toISOString(),
       });
-      expect(db.getResume).toHaveBeenCalledWith('r-1');
+      expect(db.getResume).toHaveBeenCalledWith(RID);
     });
 
     it('returns 404 for an unknown resume', async () => {
       db.getResume.mockResolvedValueOnce(null);
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/nope/status' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/${UNKNOWN_RID}/status` });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'Resume not found' });
     });
 
     it('returns 500 when the lookup fails', async () => {
       db.getResume.mockRejectedValueOnce(new Error('db down'));
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/r-1/status' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/${RID}/status` });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to fetch status' });
     });
@@ -458,39 +470,42 @@ describe('upload-service app', () => {
     it('deletes the stored file and the record', async () => {
       const filePath = path.join(uploadDir, 'to-delete.pdf');
       await fs.writeFile(filePath, 'x');
-      db.getResume.mockResolvedValueOnce({ id: 'r-1', file_path: filePath } as never);
+      db.getResume.mockResolvedValueOnce({ id: RID, file_path: filePath } as never);
 
-      const res = await app.inject({ method: 'DELETE', url: '/api/v1/upload/resumes/r-1' });
+      const res = await app.inject({ method: 'DELETE', url: `/api/v1/upload/resumes/${RID}` });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ success: true, message: 'Resume deleted successfully' });
       await expect(fs.access(filePath)).rejects.toThrow();
-      expect(db.deleteResume).toHaveBeenCalledWith('r-1');
+      expect(db.deleteResume).toHaveBeenCalledWith(RID);
     });
 
     it('still deletes the record when the file is already gone', async () => {
       db.getResume.mockResolvedValueOnce({
-        id: 'r-1',
+        id: RID,
         file_path: path.join(uploadDir, 'gone.pdf'),
       } as never);
 
-      const res = await app.inject({ method: 'DELETE', url: '/api/v1/upload/resumes/r-1' });
+      const res = await app.inject({ method: 'DELETE', url: `/api/v1/upload/resumes/${RID}` });
 
       expect(res.statusCode).toBe(200);
-      expect(db.deleteResume).toHaveBeenCalledWith('r-1');
+      expect(db.deleteResume).toHaveBeenCalledWith(RID);
     });
 
     it('returns 404 for an unknown resume', async () => {
       db.getResume.mockResolvedValueOnce(null);
-      const res = await app.inject({ method: 'DELETE', url: '/api/v1/upload/resumes/nope' });
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/upload/resumes/${UNKNOWN_RID}`,
+      });
       expect(res.statusCode).toBe(404);
       expect(db.deleteResume).not.toHaveBeenCalled();
     });
 
     it('returns 500 when deleting the record fails', async () => {
-      db.getResume.mockResolvedValueOnce({ id: 'r-1', file_path: '/nonexistent' } as never);
+      db.getResume.mockResolvedValueOnce({ id: RID, file_path: '/nonexistent' } as never);
       db.deleteResume.mockRejectedValueOnce(new Error('db down'));
-      const res = await app.inject({ method: 'DELETE', url: '/api/v1/upload/resumes/r-1' });
+      const res = await app.inject({ method: 'DELETE', url: `/api/v1/upload/resumes/${RID}` });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to delete resume' });
     });
@@ -501,56 +516,119 @@ describe('upload-service app', () => {
       const filePath = path.join(uploadDir, 'stored.pdf');
       await fs.writeFile(filePath, '%PDF-1.4 content');
       db.getResume.mockResolvedValueOnce({
-        id: 'r-1',
+        id: RID,
         file_path: filePath,
         file_name: 'jane.pdf',
         mime_type: PDF,
       } as never);
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/resumes/r-1/file' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/resumes/${RID}/file` });
 
       expect(res.statusCode).toBe(200);
       expect(res.headers['content-type']).toBe(PDF);
-      expect(res.headers['content-disposition']).toBe('inline; filename="jane.pdf"');
+      expect(res.headers['content-disposition']).toBe(
+        `inline; filename="jane.pdf"; filename*=UTF-8''jane.pdf`
+      );
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['cache-control']).toBe('private, no-store');
       expect(res.body).toBe('%PDF-1.4 content');
+    });
+
+    it('forces non-renderable types (DOCX) to download, sandboxed, with a header-safe name', async () => {
+      const filePath = path.join(uploadDir, 'stored.docx');
+      await fs.writeFile(filePath, 'PK');
+      db.getResume.mockResolvedValueOnce({
+        id: RID,
+        file_path: filePath,
+        file_name: 'cv"\r\nX-Injected: 1.docx',
+        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      } as never);
+
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/resumes/${RID}/file` });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toBe('application/octet-stream');
+      expect(res.headers['content-disposition']).toMatch(
+        /^attachment; filename="cvX-Injected 1\.docx"/
+      );
+      expect(res.headers['x-injected']).toBeUndefined();
+      expect(res.headers['content-security-policy']).toContain('sandbox');
+    });
+
+    it('returns 404 for an id that is not a UUID without querying the database', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/upload/resumes/..%2F..%2Fetc/file',
+      });
+      expect(res.statusCode).toBe(404);
+      expect(db.getResume).not.toHaveBeenCalled();
     });
 
     it('returns 404 when the record is missing', async () => {
       db.getResume.mockResolvedValueOnce(null);
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/resumes/nope/file' });
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/upload/resumes/${UNKNOWN_RID}/file`,
+      });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'Resume not found' });
     });
 
     it('returns 404 when the stored file is missing', async () => {
       db.getResume.mockResolvedValueOnce({
-        id: 'r-1',
+        id: RID,
         file_path: path.join(uploadDir, 'gone.pdf'),
       } as never);
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/resumes/r-1/file' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/resumes/${RID}/file` });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'File not found on server' });
     });
 
     it('returns 500 when the lookup fails', async () => {
       db.getResume.mockRejectedValueOnce(new Error('db down'));
-      const res = await app.inject({ method: 'GET', url: '/api/v1/upload/resumes/r-1/file' });
+      const res = await app.inject({ method: 'GET', url: `/api/v1/upload/resumes/${RID}/file` });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to serve file' });
     });
   });
 
+  describe('multipart limits', () => {
+    it('rejects a request with more files than UPLOAD_MAX_FILES with 413', async () => {
+      const files = Array.from({ length: config.upload.maxFiles + 1 }, (_, i) =>
+        resumeFile(`f${i}.pdf`)
+      );
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/upload/multiple',
+        ...multipart(files.map((p) => ({ ...p, field: 'resumes' }))),
+      });
+
+      expect(res.statusCode).toBe(413);
+      expect(await storedFiles()).toEqual([]);
+    });
+  });
+
   describe('POST /api/internal/queue/matcher', () => {
+    it('rejects a resumeId that is not a UUID', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/internal/queue/matcher',
+        payload: { resumeId: '1; DROP TABLE resumes' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(queue.queueMatcherJob).not.toHaveBeenCalled();
+    });
+
     it('queues a matcher job', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/internal/queue/matcher',
-        payload: { resumeId: 'r-1' },
+        payload: { resumeId: RID },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ success: true, message: 'Matcher job queued', resumeId: 'r-1' });
-      expect(queue.queueMatcherJob).toHaveBeenCalledWith('r-1');
+      expect(res.json()).toEqual({ success: true, message: 'Matcher job queued', resumeId: RID });
+      expect(queue.queueMatcherJob).toHaveBeenCalledWith(RID);
     });
 
     it('returns 400 without a resumeId', async () => {
@@ -568,7 +646,7 @@ describe('upload-service app', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/internal/queue/matcher',
-        payload: { resumeId: 'r-1' },
+        payload: { resumeId: RID },
       });
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({ error: 'Failed to queue matcher job' });

@@ -38,16 +38,24 @@ export function buildSinglePart(filename, content, contentType) {
  */
 export function buildMultiPart(files) {
   const boundary = randomBoundary();
-  const parts = files.map(
-    (f) =>
-      [
-        `--${boundary}`,
-        `Content-Disposition: form-data; name="resumes"; filename="${f.filename}"`,
-        `Content-Type: ${f.contentType}`,
-        '',
-        f.content,
-      ].join('\r\n')
+  const parts = files.map((f) =>
+    [
+      `--${boundary}`,
+      `Content-Disposition: form-data; name="resumes"; filename="${f.filename}"`,
+      `Content-Type: ${f.contentType}`,
+      '',
+      f.content,
+    ].join('\r\n')
   );
   const body = parts.join('\r\n') + `\r\n--${boundary}--\r\n`;
   return { body, boundary };
+}
+
+/**
+ * Authorization header for gateways that require OIDC tokens: pass a valid access token with
+ * `-e ACCESS_TOKEN=...` (e.g. from your IdP's client-credentials flow). Empty when unset.
+ * @returns {Record<string, string>}
+ */
+export function authHeaders() {
+  return __ENV.ACCESS_TOKEN ? { Authorization: `Bearer ${__ENV.ACCESS_TOKEN}` } : {};
 }

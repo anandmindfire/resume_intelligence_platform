@@ -28,8 +28,13 @@ function isUnderPrefix(path: string, prefix: string): boolean {
  * gateway does not proxy (health checks, internal endpoints) are dropped, along with tags that
  * no longer have operations. Servers are removed so Swagger UI calls the gateway's own origin.
  */
-export function rewriteSpecForGateway(spec: OpenApiDocument, routes: GatewayRouteConfig[]): OpenApiDocument {
-  const byLongestPrefix = [...routes].sort((a, b) => upstreamPrefix(b).length - upstreamPrefix(a).length);
+export function rewriteSpecForGateway(
+  spec: OpenApiDocument,
+  routes: GatewayRouteConfig[]
+): OpenApiDocument {
+  const byLongestPrefix = [...routes].sort(
+    (a, b) => upstreamPrefix(b).length - upstreamPrefix(a).length
+  );
 
   const paths: Record<string, Record<string, unknown>> = {};
   for (const [path, item] of Object.entries(spec.paths ?? {})) {
@@ -55,7 +60,10 @@ export function rewriteSpecForGateway(spec: OpenApiDocument, routes: GatewayRout
 }
 
 /** Fetch an upstream service's spec (served by @fastify/swagger at /docs/json). */
-export async function fetchServiceSpec(upstream: string, timeout: number = 5000): Promise<OpenApiDocument> {
+export async function fetchServiceSpec(
+  upstream: string,
+  timeout: number = 5000
+): Promise<OpenApiDocument> {
   const response = await axios.get<OpenApiDocument>(`${upstream}/docs/json`, { timeout });
   return response.data;
 }

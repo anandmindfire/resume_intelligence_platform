@@ -30,6 +30,8 @@ export interface UploadConfig {
   directory?: string;
   /** Max concurrent upload requests per process (0 = no limit). Used to avoid OOM under burst. */
   maxConcurrent?: number;
+  /** Max files accepted in one multipart request. */
+  maxFiles: number;
 }
 
 /**
@@ -106,7 +108,16 @@ export const config = {
     ).split(','),
     directory: process.env.UPLOAD_DIRECTORY || '/app/uploads',
     maxConcurrent: parseInt(process.env.UPLOAD_MAX_CONCURRENT || '0', 10), // 0 = no limit; set per-replica under burst (e.g. 50)
+    maxFiles: parseInt(process.env.UPLOAD_MAX_FILES || '20', 10),
   } as UploadConfig,
+
+  internalApi: {
+    /**
+     * Shared secret service-to-service calls to /api/internal/* must present in `X-Internal-Token`.
+     * Required in production (requests are refused when it is unset); optional in development.
+     */
+    token: process.env.INTERNAL_API_TOKEN || '',
+  },
 
   apiGateway: {
     port: parseInt(process.env.API_GATEWAY_PORT || '3000', 10),
@@ -135,6 +146,23 @@ export const config = {
   apiDocs: {
     /** Serve Swagger UI at /docs and the OpenAPI spec at /docs/json (set API_DOCS_ENABLED=false to disable). */
     enabled: process.env.API_DOCS_ENABLED !== 'false',
+  },
+
+  auth: {
+    /**
+     * OpenID Connect issuer (e.g. https://login.example.com/realms/resumes). When set, the API gateway
+     * requires a valid `Authorization: Bearer <access token>` from this issuer on every non-public route.
+     * Required in production unless AUTH_DISABLED=true.
+     */
+    oidcIssuer: (process.env.OIDC_ISSUER || '').trim(),
+    /** Expected `aud` claim of access tokens (usually the API's identifier / client id). */
+    oidcAudience: (process.env.OIDC_AUDIENCE || '').trim(),
+    /** JWKS URL; discovered from the issuer's /.well-known/openid-configuration when unset. */
+    oidcJwksUri: (process.env.OIDC_JWKS_URI || '').trim(),
+    /** Optional scope every token must carry (space-separated `scope` or `scp` claim). */
+    requiredScope: (process.env.OIDC_REQUIRED_SCOPE || '').trim(),
+    /** Explicit opt-out (e.g. load tests). Never set in an internet-facing deployment. */
+    disabled: process.env.AUTH_DISABLED === 'true',
   },
 
   jwt: {

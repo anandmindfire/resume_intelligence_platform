@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { warn } = vi.hoisted(() => ({ warn: vi.fn() }));
+const { warn, RedisMock } = vi.hoisted(() => ({
+  warn: vi.fn(),
+  RedisMock: vi.fn(function (this: { options: unknown }, options: unknown) {
+    this.options = options;
+  }),
+}));
 vi.mock('@resume-platform/logger', () => ({ logger: { warn } }));
+vi.mock('ioredis', () => ({ default: RedisMock }));
 
 async function loadSecurity(env: Record<string, string> = {}) {
   vi.resetModules();
@@ -29,6 +35,35 @@ describe('buildRateLimitOptions', () => {
       RATE_LIMIT_WINDOW: '1 minute',
     });
     expect(buildRateLimitOptions(500)).toEqual({ max: 20, timeWindow: '1 minute' });
+  });
+
+  it('keeps counters in memory unless RATE_LIMIT_STORE=redis', async () => {
+    const { buildRateLimitOptions } = await loadSecurity({ RATE_LIMIT_STORE: '' });
+    expect(buildRateLimitOptions(500, 'svc')).not.toHaveProperty('redis');
+    expect(RedisMock).not.toHaveBeenCalled();
+  });
+
+  it('shares counters across replicas through Redis when RATE_LIMIT_STORE=redis', async () => {
+    RedisMock.mockClear();
+    const { buildRateLimitOptions } = await loadSecurity({
+      RATE_LIMIT_STORE: 'redis',
+      RATE_LIMIT_MAX: '',
+    });
+    const first = buildRateLimitOptions(500, 'upload-service');
+    const second = buildRateLimitOptions(500, 'upload-service');
+
+    expect(first).toMatchObject({
+      max: 500,
+      nameSpace: 'rate-limit:upload-service:',
+      skipOnError: true,
+    });
+    expect(first.redis).toBeInstanceOf(RedisMock);
+    expect(second.redis).toBe(first.redis);
+    expect(RedisMock).toHaveBeenCalledTimes(1);
+    expect(RedisMock.mock.calls[0][0]).toMatchObject({
+      enableOfflineQueue: false,
+      connectTimeout: 500,
+    });
   });
 });
 

@@ -56,7 +56,7 @@ FROM base AS runner
 WORKDIR /app
 
 # Create exports directory
-RUN mkdir -p /app/exports
+RUN mkdir -p /app/exports && chown node:node /app/exports && chmod 0700 /app/exports
 
 # Copy root package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -84,5 +84,8 @@ COPY --from=builder /app/apps/export-worker-node/dist ./apps/export-worker-node/
 WORKDIR /app/apps/export-worker-node
 
 VOLUME ["/app/exports"]
+
+# Run as the unprivileged `node` user (uid 1000) from the base image, never root
+USER node
 
 CMD ["node", "dist/index.js"]

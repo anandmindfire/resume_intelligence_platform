@@ -16,7 +16,7 @@ import { registerSwagger } from './plugins/swagger';
 import { sharedSchemas } from './schemas/models.schemas';
 
 /** Rate limit for the analytics API (per client IP; see TRUST_PROXY so that's the real client, not the gateway). */
-const rateLimitOptions = buildRateLimitOptions(1000);
+const rateLimitOptions = buildRateLimitOptions(1000, 'analytics-api');
 
 const corsOptions = buildCorsOptions(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']);
 

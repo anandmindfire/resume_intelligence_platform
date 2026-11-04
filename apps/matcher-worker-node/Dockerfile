@@ -96,4 +96,7 @@ COPY --from=builder /app/apps/matcher-worker-node/dist ./apps/matcher-worker-nod
 
 WORKDIR /app/apps/matcher-worker-node
 
+# Run as the unprivileged `node` user (uid 1000) from the base image, never root
+USER node
+
 CMD ["node", "dist/index.js"]

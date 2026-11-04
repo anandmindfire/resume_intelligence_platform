@@ -10,7 +10,7 @@ from constants import PARSER_QUEUE_NAME, QUEUE_NAME
 
 JOB = {
     "resumeId": "res-123",
-    "filePath": "/uploads/res-123.pdf",
+    "filePath": "/app/uploads/res-123.pdf",
     "fileName": "jane_doe.pdf",
     "mimeType": "application/pdf",
 }
@@ -31,6 +31,41 @@ def redis_client(monkeypatch):
     monkeypatch.setattr(redis, "Redis", ctor)
     client.ctor = ctor
     return client
+
+
+# --------------------------------------------------------------------------- resolve_upload_path
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/etc/passwd", "/app/uploads/../secrets.txt", "/app/uploads", "/app/uploads-evil/x.pdf", "", None],
+)
+def test_resolve_upload_path_rejects_paths_outside_uploads(path):
+    with pytest.raises(ValueError):
+        main.resolve_upload_path(path)
+
+
+def test_resolve_upload_path_honours_upload_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv("UPLOAD_DIRECTORY", str(tmp_path))
+    target = tmp_path / "a.pdf"
+    assert main.resolve_upload_path(str(target)) == str(target.resolve())
+
+
+def test_resolve_upload_path_rejects_symlink_escape(monkeypatch, tmp_path):
+    uploads = tmp_path / "uploads"
+    uploads.mkdir()
+    outside = tmp_path / "secret.txt"
+    outside.write_text("x")
+    (uploads / "link.pdf").symlink_to(outside)
+    monkeypatch.setenv("UPLOAD_DIRECTORY", str(uploads))
+    with pytest.raises(ValueError):
+        main.resolve_upload_path(str(uploads / "link.pdf"))
+
+
+def test_process_ocr_job_refuses_path_outside_uploads(processor, redis_client):
+    with pytest.raises(ValueError):
+        main.process_ocr_job({**JOB, "filePath": "/etc/passwd"})
+    processor.extract_text.assert_not_called()
 
 
 # --------------------------------------------------------------------------- process_ocr_job

@@ -15,9 +15,27 @@ from constants import (
     REDIS_HOST_DEFAULT,
     REDIS_PORT_DEFAULT,
     OCR_WORKER_CONCURRENCY_DEFAULT,
+    UPLOAD_DIRECTORY_DEFAULT,
 )
 
 logger = get_logger(__name__)
+
+
+def resolve_upload_path(file_path) -> str:
+    """
+    Return the real path of an uploaded file, refusing anything outside the uploads directory.
+
+    Queue messages are only as trustworthy as everyone who can write to Redis, so a job must not be
+    able to point the worker at arbitrary files (e.g. /etc/passwd or another tenant's data). Symlinks
+    are resolved before the check.
+    """
+    if not isinstance(file_path, str) or not file_path:
+        raise ValueError("Job has no filePath")
+    root = Path(os.getenv("UPLOAD_DIRECTORY", UPLOAD_DIRECTORY_DEFAULT)).resolve()
+    resolved = Path(file_path).resolve()
+    if resolved == root or root not in resolved.parents:
+        raise ValueError("filePath is outside the uploads directory")
+    return str(resolved)
 
 def process_ocr_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Process OCR job from queue"""
@@ -32,8 +50,9 @@ def process_ocr_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
             "mime_type": mime_type
         })
         
+        safe_path = resolve_upload_path(file_path)
         processor = OCRProcessor()
-        extracted_text = processor.extract_text(file_path, mime_type)
+        extracted_text = processor.extract_text(safe_path, mime_type)
         
         if not extracted_text:
             raise ValueError("No text extracted from file")

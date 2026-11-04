@@ -29,4 +29,11 @@ ENV PYTHONPATH=/app/src
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import sys; sys.path.insert(0, '/app/src'); from services.health import check_health; import json; result = check_health(); sys.exit(0 if result['status'] == 'healthy' else 1)" || exit 1
 
+# Unprivileged runtime user. uid 1000 matches the Node services' `node` user, so files the upload
+# service writes with mode 0600 on the shared uploads volume are readable here and nowhere else.
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app/uploads && chown app:app /app/uploads && chmod 0700 /app/uploads
+USER app
+
 CMD ["python", "main.py"]

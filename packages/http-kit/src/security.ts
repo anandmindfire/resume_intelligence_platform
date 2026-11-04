@@ -1,3 +1,4 @@
+import Redis from 'ioredis';
 import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
 
@@ -16,11 +17,53 @@ export const helmetOptions = {
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' as const },
 };
 
-/** Per-IP rate limit. `defaultMax` differs per service; RATE_LIMIT_MAX / RATE_LIMIT_WINDOW override it everywhere. */
-export function buildRateLimitOptions(defaultMax: number) {
-  return {
+let rateLimitRedis: Redis | undefined;
+
+/** One Redis connection per process for rate-limit counters, created on first use. */
+function getRateLimitRedis(): Redis {
+  rateLimitRedis ??= new Redis({
+    host: config.redis.host,
+    port: config.redis.port,
+    password: config.redis.password,
+    // A slow or absent Redis must not stall every request: fail fast, then skipOnError lets it through.
+    connectTimeout: 500,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+  });
+  return rateLimitRedis;
+}
+
+/**
+ * Per-client rate limit. `defaultMax` differs per service; RATE_LIMIT_MAX / RATE_LIMIT_WINDOW override it
+ * everywhere.
+ *
+ * By default counters live in process memory, so with N replicas a client effectively gets N x max.
+ * Set RATE_LIMIT_STORE=redis to keep the counters in Redis (REDIS_HOST / REDIS_PORT / REDIS_PASSWORD),
+ * shared by every replica of the service. If Redis is unreachable requests are allowed rather than
+ * failing (availability over strictness); the error is logged by the plugin.
+ *
+ * The client is identified by `request.ip`, which honours X-Forwarded-For only as far as TRUST_PROXY
+ * allows (see README "Client identity behind proxies").
+ */
+export interface RateLimitOptions {
+  max: number;
+  timeWindow: string;
+  redis?: Redis;
+  nameSpace?: string;
+  skipOnError?: boolean;
+}
+
+export function buildRateLimitOptions(defaultMax: number, service = 'api'): RateLimitOptions {
+  const options: RateLimitOptions = {
     max: parseInt(process.env.RATE_LIMIT_MAX || String(defaultMax), 10),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
+  };
+  if (process.env.RATE_LIMIT_STORE?.trim().toLowerCase() !== 'redis') return options;
+  return {
+    ...options,
+    redis: getRateLimitRedis(),
+    nameSpace: `rate-limit:${service}:`,
+    skipOnError: true,
   };
 }
 

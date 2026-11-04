@@ -21,9 +21,17 @@ export interface UploadResult {
   error?: string;
 }
 
+/** A file type identified from the file's content (magic bytes), not from client-supplied metadata. */
+export interface DetectedFileType {
+  mimeType: string;
+  extension: string;
+}
+
 export interface FileValidationResult {
   valid: boolean;
   error?: string;
+  /** Present when valid: the type to persist and hand to workers. */
+  detected?: DetectedFileType;
 }
 
 // Alias for backward compatibility

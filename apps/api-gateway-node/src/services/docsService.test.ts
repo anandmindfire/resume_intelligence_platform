@@ -33,7 +33,10 @@ describe('rewriteSpecForGateway', () => {
 
     const result = rewriteSpecForGateway(spec, uploadRoutes);
 
-    expect(Object.keys(result.paths!)).toEqual(['/api/upload/single', '/api/upload/resumes/{resumeId}/file']);
+    expect(Object.keys(result.paths!)).toEqual([
+      '/api/upload/single',
+      '/api/upload/resumes/{resumeId}/file',
+    ]);
     expect(result.paths!['/api/upload/single']).toBe(spec.paths!['/api/v1/upload/single']);
     expect(result.info).toEqual(spec.info);
   });
@@ -88,11 +91,18 @@ describe('rewriteSpecForGateway', () => {
   });
 
   it('copes with a spec without paths or tags', () => {
-    expect(rewriteSpecForGateway({ openapi: '3.0.3' }, uploadRoutes)).toEqual({ openapi: '3.0.3', paths: {} });
+    expect(rewriteSpecForGateway({ openapi: '3.0.3' }, uploadRoutes)).toEqual({
+      openapi: '3.0.3',
+      paths: {},
+    });
   });
 
   it('does not mutate the input spec', () => {
-    const spec: OpenApiDocument = { servers: [], tags: [{ name: 'Health' }], paths: { '/health': { get: op('Health') } } };
+    const spec: OpenApiDocument = {
+      servers: [],
+      tags: [{ name: 'Health' }],
+      paths: { '/health': { get: op('Health') } },
+    };
     const copy = structuredClone(spec);
     rewriteSpecForGateway(spec, uploadRoutes);
     expect(spec).toEqual(copy);

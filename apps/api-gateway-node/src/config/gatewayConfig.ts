@@ -31,7 +31,7 @@ export const gatewayRoutes: Record<string, GatewayRouteConfig> = {
 };
 
 // Rate limit: set RATE_LIMIT_MAX high (e.g. 10000) for load testing so uploads don't get 429
-export const rateLimitConfig = buildRateLimitOptions(10000);
+export const rateLimitConfig = buildRateLimitOptions(10000, 'api-gateway');
 
 export const helmetConfig = helmetOptions;
 

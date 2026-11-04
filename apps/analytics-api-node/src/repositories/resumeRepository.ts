@@ -18,6 +18,16 @@ const pool = new Pool({
   max: 20,
 });
 
+/**
+ * Removes server-internal columns before a row leaves the service. `file_path` is the on-disk location
+ * of the upload: clients fetch files by id through the upload service and must never learn paths.
+ */
+export function toPublicResume<T extends Record<string, unknown>>(row: T): Omit<T, 'file_path'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { file_path, ...rest } = row;
+  return rest;
+}
+
 export class ResumeRepository {
   async findAll(
     filters: ResumeFilters,
@@ -28,15 +38,9 @@ export class ResumeRepository {
   ) {
     const client = await pool.connect();
     try {
-      const { text, values } = buildFindAllResumesQuery(
-        filters,
-        limit,
-        offset,
-        sortBy,
-        sortOrder
-      );
+      const { text, values } = buildFindAllResumesQuery(filters, limit, offset, sortBy, sortOrder);
       const result = await client.query(text, values);
-      return result.rows;
+      return result.rows.map(toPublicResume);
     } finally {
       client.release();
     }
@@ -57,7 +61,7 @@ export class ResumeRepository {
     const client = await pool.connect();
     try {
       const result = await client.query(FIND_RESUME_BY_ID, [id]);
-      return result.rows[0] || null;
+      return result.rows[0] ? toPublicResume(result.rows[0]) : null;
     } finally {
       client.release();
     }

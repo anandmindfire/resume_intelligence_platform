@@ -2,6 +2,7 @@
 # Run k6 load test: use local k6 if available, otherwise Docker (grafana/k6).
 # Usage: ./scripts/run-k6.sh [k6 script path]
 # Example: ./scripts/run-k6.sh load-testing/k6/upload.test.js
+# ACCESS_TOKEN (optional) is sent as a Bearer token when the gateway requires OIDC auth.
 # BASE_URL is passed through (default http://localhost:3000; works with Docker Compose gateway on host:3000).
 
 set -e
@@ -24,5 +25,5 @@ if [[ "$BASE_URL" == http://localhost* ]]; then
 fi
 
 docker run --rm -v "$(pwd):/app" -w /app --add-host=host.docker.internal:host-gateway \
-  -e BASE_URL="$BASE_URL" -e FILES_PER_REQUEST="${FILES_PER_REQUEST:-5}" \
+  -e BASE_URL="$BASE_URL" -e FILES_PER_REQUEST="${FILES_PER_REQUEST:-5}" -e ACCESS_TOKEN="${ACCESS_TOKEN:-}" \
   grafana/k6 run "$SCRIPT"

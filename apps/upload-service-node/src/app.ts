@@ -9,6 +9,7 @@ import {
   buildRateLimitOptions,
   createBaseApp,
   helmetOptions,
+  registerInternalAuth,
   warnIfCorsUnrestricted,
 } from '@resume-platform/http-kit';
 import { registerRoutes } from './routes';
@@ -16,7 +17,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { registerSwagger } from './plugins/swagger';
 
 /** Rate limit for the upload service (per client IP; see TRUST_PROXY so that's the real client, not the gateway). */
-const rateLimitOptions = buildRateLimitOptions(500);
+const rateLimitOptions = buildRateLimitOptions(500, 'upload-service');
 
 const corsOptions = buildCorsOptions(['GET', 'POST', 'OPTIONS']);
 
@@ -37,11 +38,25 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, rateLimitOptions);
   await app.register(cors, corsOptions);
 
+  // Service-to-service routes (/api/internal/*) require the shared INTERNAL_API_TOKEN.
+  registerInternalAuth(app, {
+    token: config.internalApi.token,
+    requireToken: process.env.NODE_ENV === 'production',
+  });
+
   // Oversized files are flagged `truncated` rather than aborting the request, so the upload handlers can
   // reject them (413 for a single upload, a per-file failure in a batch) without losing the other files.
+  // The count/size limits on parts, fields and headers stop a single request from exhausting the
+  // process with thousands of tiny parts or huge non-file fields.
   await app.register(multipart, {
     limits: {
       fileSize: config.upload.maxSize,
+      files: config.upload.maxFiles,
+      fields: 10,
+      fieldNameSize: 100,
+      fieldSize: 1024,
+      parts: config.upload.maxFiles + 10,
+      headerPairs: 100,
     },
     throwFileSizeLimit: false,
   });
