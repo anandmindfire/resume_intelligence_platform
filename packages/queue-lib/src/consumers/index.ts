@@ -3,13 +3,16 @@ import { config } from '@resume-platform/config';
 import { logger } from '@resume-platform/logger';
 import { QueueJobData } from '../producers';
 
+/** Worker handler function that processes a queue job. */
 export interface ProcessorFunction {
   (job: Job<QueueJobData>): Promise<unknown>;
 }
 
+/** BullMQ worker manager for processing background queue jobs. */
 export class QueueConsumer {
   private workers: Map<string, Worker> = new Map();
 
+  /** Creates and starts a BullMQ worker for the specified queue name. */
   createWorker(
     queueName: string,
     processor: ProcessorFunction,
@@ -73,10 +76,12 @@ export class QueueConsumer {
     return worker;
   }
 
+  /** Gracefully stops and closes all registered BullMQ workers. */
   async close() {
-    await Promise.all(Array.from(this.workers.values()).map(w => w.close()));
+    await Promise.all(Array.from(this.workers.values()).map((w) => w.close()));
     this.workers.clear();
   }
 }
 
+/** Shared singleton consumer instance. */
 export const queueConsumer = new QueueConsumer();

@@ -7,6 +7,7 @@ import { dbService } from '../services/dbService';
 import { queueHandler } from '../queues/queueHandler';
 import { RESUME_STATUS } from '../constants';
 
+/** Matches a parsed resume against all active job roles, persisting score breakdowns. */
 export async function processMatchJob(job: Job<QueueJobData>) {
   const { resumeId } = job.data;
 

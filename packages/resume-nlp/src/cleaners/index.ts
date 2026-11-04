@@ -1,4 +1,6 @@
+/** Text sanitization and contact pattern extraction utilities. */
 export class TextCleaner {
+  /** Normalizes whitespace and line breaks across raw text input. */
   static clean(text: string): string {
     if (!text) return '';
 
@@ -11,7 +13,10 @@ export class TextCleaner {
   }
 
   static removeSpecialChars(text: string): string {
-    return text.replace(/[^\w\s@.-]/g, ' ').replace(/\s+/g, ' ').trim();
+    return text
+      .replace(/[^\w\s@.-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   static normalizeWhitespace(text: string): string {

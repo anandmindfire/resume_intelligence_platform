@@ -25,6 +25,7 @@ function isValidResumeId(resumeId: string | undefined): resumeId is string {
 /** Limit concurrent uploads per process when UPLOAD_MAX_CONCURRENT is set; scale via replicas for more capacity. */
 const uploadLimiter = createConcurrencyLimiter(UPLOAD_CONCURRENCY_LIMIT);
 
+/** Handles single file multipart upload and queues downstream OCR processing. */
 export async function uploadSingle(request: FastifyRequest, reply: FastifyReply) {
   await uploadLimiter.acquire();
   try {
@@ -55,6 +56,7 @@ export async function uploadSingle(request: FastifyRequest, reply: FastifyReply)
   }
 }
 
+/** Handles batch multipart uploads with independent per-file validation and ingestion. */
 export async function uploadMultiple(request: FastifyRequest, reply: FastifyReply) {
   await uploadLimiter.acquire();
   try {
@@ -83,6 +85,7 @@ export async function uploadMultiple(request: FastifyRequest, reply: FastifyRepl
   }
 }
 
+/** Returns the processing pipeline status of an uploaded resume. */
 export async function getUploadStatus(
   request: FastifyRequest<{ Params: { resumeId: string } }>,
   reply: FastifyReply
@@ -110,6 +113,7 @@ export async function getUploadStatus(
   }
 }
 
+/** Deletes a resume record and removes its uploaded file from disk. */
 export async function deleteResume(
   request: FastifyRequest<{ Params: { resumeId: string } }>,
   reply: FastifyReply
@@ -132,6 +136,7 @@ export async function deleteResume(
   }
 }
 
+/** Streams the stored raw file for download or inline browser viewing. */
 export async function getResumeFile(
   request: FastifyRequest<{ Params: { resumeId: string } }>,
   reply: FastifyReply

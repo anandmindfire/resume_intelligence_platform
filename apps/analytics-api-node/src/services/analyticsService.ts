@@ -4,7 +4,9 @@ import { analyticsRepository } from '../repositories/analyticsRepository';
 import { ResumeFilters } from '../types';
 import { ANALYTICS, RESUME_STATUS } from '../constants';
 
+/** Aggregation and query service for dashboard analytics, skill distributions, and resume queries. */
 class AnalyticsService {
+  /** Compiles summary metrics for the main analytics dashboard. */
   async getDashboardSummary() {
     const [totalResumes, processedResumes, topSkills, roleMatches] = await Promise.all([
       resumeRepository.count(),
@@ -33,6 +35,7 @@ class AnalyticsService {
     return analyticsRepository.getEducationStats(ANALYTICS.DEFAULT_EDUCATION_STATS_LIMIT);
   }
 
+  /** Retrieves paginated candidate matches for a specific role or across all roles. */
   async getRoleMatches(
     roleId?: string,
     minScore: number = 0,
@@ -58,6 +61,7 @@ class AnalyticsService {
     };
   }
 
+  /** Retrieves filtered and paginated resume records. */
   async getResumes(
     filters: ResumeFilters,
     pagination?: { page: number; limit: number; sortBy: string; sortOrder: 'asc' | 'desc' }
@@ -93,9 +97,8 @@ class AnalyticsService {
     const resumes = await resumeRepository.findAll(filters, ANALYTICS.MAX_RESUME_EXPORT_LIMIT);
 
     // Filter by resumeIds if provided
-    const filteredResumes = resumeIds && resumeIds.length > 0
-      ? resumes.filter(r => resumeIds.includes(r.id))
-      : resumes;
+    const filteredResumes =
+      resumeIds && resumeIds.length > 0 ? resumes.filter((r) => resumeIds.includes(r.id)) : resumes;
 
     return filteredResumes;
   }

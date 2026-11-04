@@ -1,3 +1,4 @@
+/** Job role requirements and criteria for candidate matching. */
 export interface JobRole {
   id: string;
   title: string;
@@ -8,6 +9,7 @@ export interface JobRole {
   location?: string;
 }
 
+/** Result of matching a resume against a target job role. */
 export interface MatchResult {
   roleId: string;
   roleTitle: string;

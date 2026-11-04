@@ -1,11 +1,13 @@
 import winston from 'winston';
 
+/** Configuration options for the logger factory. */
 export interface LoggerConfig {
   level?: string;
   format?: 'json' | 'simple';
   service?: string;
 }
 
+/** Creates a configured Winston logger instance with JSON or formatted console output. */
 const createLogger = (config: LoggerConfig = {}) => {
   const { level = 'info', format = 'json', service = 'unknown' } = config;
 
@@ -38,6 +40,7 @@ const createLogger = (config: LoggerConfig = {}) => {
   });
 };
 
+/** Default singleton logger configured from environment variables. */
 export const logger = createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: (process.env.LOG_FORMAT as 'json' | 'simple') || 'json',
@@ -55,6 +58,7 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Safely extracts stack trace from an unknown error value if available. */
 export function getErrorStack(error: unknown): string | undefined {
   return error instanceof Error ? error.stack : undefined;
 }

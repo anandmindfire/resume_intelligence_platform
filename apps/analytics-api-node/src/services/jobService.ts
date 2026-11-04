@@ -31,6 +31,7 @@ function roundScore(score: number): number {
   return Math.round(score * 100) / 100;
 }
 
+/** Service handling job definitions and candidate match aggregation for job openings. */
 class JobService {
   async getAllJobs(): Promise<JobRole[]> {
     return jobRepository.findAll();
@@ -44,6 +45,7 @@ class JobService {
     return jobRepository.findByJobId(jobId);
   }
 
+  /** Retrieves detailed match statistics and candidate breakdowns for a specific job role. */
   async getJobMatches(jobId: string, minScore: number = 0): Promise<JobMatchDetail | null> {
     const job = await jobRepository.findById(jobId);
     if (!job) {
@@ -51,14 +53,18 @@ class JobService {
     }
 
     // Get all matches for this job role
-    const matches = await matchRepository.findByRole(job.id, minScore, ANALYTICS.MAX_RESUME_EXPORT_LIMIT);
+    const matches = await matchRepository.findByRole(
+      job.id,
+      minScore,
+      ANALYTICS.MAX_RESUME_EXPORT_LIMIT
+    );
 
     // Calculate aggregate statistics
     const totalScore = matches.reduce((sum, m) => sum + parseFloat(m.match_score || '0'), 0);
     const avgScore = matches.length > 0 ? totalScore / matches.length : 0;
 
     // Get matched resumes with details
-    const matchedResumes = matches.map(match => ({
+    const matchedResumes = matches.map((match) => ({
       resumeId: match.resume_id,
       resumeName: match.name || match.file_name || 'Unknown',
       matchScore: roundScore(parseFloat(match.match_score || '0')),
@@ -69,7 +75,7 @@ class JobService {
     const allMatchedSkills = new Set<string>();
     const allMissingSkills = new Set<string>();
 
-    matches.forEach(match => {
+    matches.forEach((match) => {
       (match.matched_skills || []).forEach((skill: string) => allMatchedSkills.add(skill));
       (match.missing_skills || []).forEach((skill: string) => allMissingSkills.add(skill));
     });
@@ -79,14 +85,12 @@ class JobService {
     const requirementsTotal = requiredSkills.length + 1; // skills + experience requirement
 
     // Count how many required skills have been matched by at least one resume
-    const matchedRequiredSkills = requiredSkills.filter(skill =>
-      Array.from(allMatchedSkills).some(matched =>
-        matched.toLowerCase() === skill.toLowerCase()
-      )
+    const matchedRequiredSkills = requiredSkills.filter((skill) =>
+      Array.from(allMatchedSkills).some((matched) => matched.toLowerCase() === skill.toLowerCase())
     ).length;
 
     // Add 1 if any resume matches the experience requirement
-    const experienceRequirementMet = matches.some(m => m.experience_match === true) ? 1 : 0;
+    const experienceRequirementMet = matches.some((m) => m.experience_match === true) ? 1 : 0;
     const requirementsMet = matchedRequiredSkills + experienceRequirementMet;
 
     return {
@@ -95,7 +99,7 @@ class JobService {
       matchScore: roundScore(avgScore),
       skillsMatched: Array.from(allMatchedSkills),
       skillsMissing: Array.from(allMissingSkills),
-      experienceMatch: matches.some(m => m.experience_match === true),
+      experienceMatch: matches.some((m) => m.experience_match === true),
       locationMatch: false, // TODO: Implement location matching logic
       requirementsMet,
       requirementsTotal,
@@ -108,7 +112,11 @@ class JobService {
     const jobsWithMatches: JobWithMatches[] = [];
 
     for (const job of jobs) {
-      const matches = await matchRepository.findByRole(job.id, 0, ANALYTICS.MAX_RESUME_EXPORT_LIMIT);
+      const matches = await matchRepository.findByRole(
+        job.id,
+        0,
+        ANALYTICS.MAX_RESUME_EXPORT_LIMIT
+      );
       const totalScore = matches.reduce((sum, m) => sum + parseFloat(m.match_score || '0'), 0);
       const avgScore = matches.length > 0 ? totalScore / matches.length : 0;
 
@@ -122,16 +130,18 @@ class JobService {
     return jobsWithMatches;
   }
 
-  async seedJobs(mockJobs: Array<{
-    jobId: string;
-    title: string;
-    domain: string;
-    experienceRange: string;
-    location: string;
-    skills: string[];
-    keywords: string[];
-  }>): Promise<JobRole[]> {
-    const jobsToCreate = mockJobs.map(mockJob => {
+  async seedJobs(
+    mockJobs: Array<{
+      jobId: string;
+      title: string;
+      domain: string;
+      experienceRange: string;
+      location: string;
+      skills: string[];
+      keywords: string[];
+    }>
+  ): Promise<JobRole[]> {
+    const jobsToCreate = mockJobs.map((mockJob) => {
       // Parse experience range (e.g., "2-4 years" -> 2)
       const experienceMatch = mockJob.experienceRange.match(/(\d+)-(\d+)/);
       const minExperience = experienceMatch ? parseInt(experienceMatch[1]) : null;

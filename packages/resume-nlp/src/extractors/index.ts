@@ -43,7 +43,9 @@ function isEducationHeading(line: string): boolean {
   return line.length <= MAX_HEADING_LENGTH && EDUCATION_HEADING.test(line);
 }
 
+/** NLP- and pattern-based entity extractor for unstructured resume text. */
 export class ResumeExtractor {
+  /** Extracts contact info, skills, experience, and education from cleaned resume text. */
   static extract(text: string): ExtractedResume {
     const cleaned = TextCleaner.clean(text);
     const doc = nlp(cleaned);
@@ -78,7 +80,7 @@ export class ResumeExtractor {
   private static extractEmail(text: string): string | undefined {
     const emails = TextCleaner.extractEmail(text);
     if (emails.length > 0) {
-      const validEmail = emails.find(e => validator.validate(e));
+      const validEmail = emails.find((e) => validator.validate(e));
       return validEmail || emails[0];
     }
     return undefined;
@@ -102,10 +104,32 @@ export class ResumeExtractor {
 
   private static extractSkills(text: string, doc: NlpDoc): string[] {
     const skillKeywords = [
-      'javascript', 'typescript', 'python', 'java', 'react', 'node', 'sql',
-      'aws', 'docker', 'kubernetes', 'git', 'mongodb', 'postgresql',
-      'machine learning', 'ai', 'agile', 'scrum', 'ci/cd', 'rest api',
-      'graphql', 'microservices', 'linux', 'html', 'css', 'angular', 'vue',
+      'javascript',
+      'typescript',
+      'python',
+      'java',
+      'react',
+      'node',
+      'sql',
+      'aws',
+      'docker',
+      'kubernetes',
+      'git',
+      'mongodb',
+      'postgresql',
+      'machine learning',
+      'ai',
+      'agile',
+      'scrum',
+      'ci/cd',
+      'rest api',
+      'graphql',
+      'microservices',
+      'linux',
+      'html',
+      'css',
+      'angular',
+      'vue',
     ];
 
     const foundSkills: string[] = [];
@@ -121,8 +145,9 @@ export class ResumeExtractor {
     const nouns = doc.nouns().out('array');
     const technicalTerms = nouns.filter((term: string) => {
       const lower = term.toLowerCase();
-      return lower.length > 3 && 
-             !['experience', 'education', 'summary', 'objective'].includes(lower);
+      return (
+        lower.length > 3 && !['experience', 'education', 'summary', 'objective'].includes(lower)
+      );
     });
 
     return [...new Set([...foundSkills, ...technicalTerms.slice(0, 10)])];
@@ -137,7 +162,7 @@ export class ResumeExtractor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       // Detect experience section
       if (/experience|work history|employment|career/i.test(line)) {
         inExperienceSection = true;
@@ -156,7 +181,12 @@ export class ResumeExtractor {
         }
 
         // Detect job title patterns
-        if (/^(senior|junior|lead|principal)?\s*(software|engineer|developer|manager|analyst|designer)/i.test(line) && !currentExp.title) {
+        if (
+          /^(senior|junior|lead|principal)?\s*(software|engineer|developer|manager|analyst|designer)/i.test(
+            line
+          ) &&
+          !currentExp.title
+        ) {
           currentExp.title = line;
           continue;
         }
@@ -211,8 +241,11 @@ export class ResumeExtractor {
         }
 
         // Detect institution names
-        if (currentEdu.degree && !currentEdu.institution && 
-            (line.includes('University') || line.includes('College') || line.includes('Institute'))) {
+        if (
+          currentEdu.degree &&
+          !currentEdu.institution &&
+          (line.includes('University') || line.includes('College') || line.includes('Institute'))
+        ) {
           currentEdu.institution = line;
           continue;
         }

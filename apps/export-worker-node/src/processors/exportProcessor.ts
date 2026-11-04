@@ -24,6 +24,7 @@ export function parseExportJobData(data: QueueJobData): ExportJobData {
   return { resumeIds, outputPath };
 }
 
+/** Exports specified or all resume records to a CSV file. */
 export async function processExportJob(job: Job<QueueJobData>): Promise<ExportResult> {
   const { resumeIds, outputPath } = parseExportJobData(job.data);
 

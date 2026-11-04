@@ -1,7 +1,9 @@
 import { JobRole, MatchResult } from '../models';
 import { ExtractedResume, Experience } from '@resume-platform/resume-nlp';
 
+/** Evaluates candidate resumes against job role requirements. */
 export class RoleMatcher {
+  /** Computes weighted skill, keyword, and experience match scores against a job role. */
   static match(resume: ExtractedResume, role: JobRole): MatchResult {
     const skillScore = this.calculateSkillScore(resume.skills, role);
     const keywordScore = this.calculateKeywordScore(resume.rawText, role);
@@ -9,23 +11,21 @@ export class RoleMatcher {
 
     // Weighted overall score: 50% Skills, 40% Experience, 10% Keywords.
     // The experience bonus can push the raw sum above 1 (up to 1.08); a match percentage never exceeds 100.
-    const overallScore = Math.min(
-      skillScore * 0.5 + experienceScore * 0.4 + keywordScore * 0.1,
-      1
-    );
+    const overallScore = Math.min(skillScore * 0.5 + experienceScore * 0.4 + keywordScore * 0.1, 1);
 
-    const matchedSkills = resume.skills.filter(resumeSkill =>
-      [...role.requiredSkills, ...role.preferredSkills].some(roleSkill => {
+    const matchedSkills = resume.skills.filter((resumeSkill) =>
+      [...role.requiredSkills, ...role.preferredSkills].some((roleSkill) => {
         const regex = new RegExp(`\\b${this.escapeRegExp(roleSkill)}\\b`, 'i');
         return regex.test(resumeSkill);
       })
     );
 
-    const missingSkills = role.requiredSkills.filter(required =>
-      !resume.skills.some(resumeSkill => {
-        const regex = new RegExp(`\\b${this.escapeRegExp(required)}\\b`, 'i');
-        return regex.test(resumeSkill);
-      })
+    const missingSkills = role.requiredSkills.filter(
+      (required) =>
+        !resume.skills.some((resumeSkill) => {
+          const regex = new RegExp(`\\b${this.escapeRegExp(required)}\\b`, 'i');
+          return regex.test(resumeSkill);
+        })
     );
 
     const totalExperience = this.calculateTotalExperience(resume.experience);
@@ -53,21 +53,19 @@ export class RoleMatcher {
       return 1.0;
     }
 
-    const matchedRequired = role.requiredSkills.filter(required =>
-      skills.some(skill => new RegExp(`\\b${this.escapeRegExp(required)}\\b`, 'i').test(skill))
+    const matchedRequired = role.requiredSkills.filter((required) =>
+      skills.some((skill) => new RegExp(`\\b${this.escapeRegExp(required)}\\b`, 'i').test(skill))
     ).length;
 
-    const matchedPreferred = role.preferredSkills.filter(preferred =>
-      skills.some(skill => new RegExp(`\\b${this.escapeRegExp(preferred)}\\b`, 'i').test(skill))
+    const matchedPreferred = role.preferredSkills.filter((preferred) =>
+      skills.some((skill) => new RegExp(`\\b${this.escapeRegExp(preferred)}\\b`, 'i').test(skill))
     ).length;
 
-    const requiredScore = role.requiredSkills.length > 0
-      ? matchedRequired / role.requiredSkills.length
-      : 1.0;
+    const requiredScore =
+      role.requiredSkills.length > 0 ? matchedRequired / role.requiredSkills.length : 1.0;
 
-    const preferredScore = role.preferredSkills.length > 0
-      ? matchedPreferred / role.preferredSkills.length
-      : 1.0;
+    const preferredScore =
+      role.preferredSkills.length > 0 ? matchedPreferred / role.preferredSkills.length : 1.0;
 
     // Weight: 80% required, 20% preferred
     return requiredScore * 0.8 + preferredScore * 0.2;
@@ -76,7 +74,7 @@ export class RoleMatcher {
   private static calculateKeywordScore(text: string, role: JobRole): number {
     if (role.keywords.length === 0) return 1.0;
 
-    const matchedKeywords = role.keywords.filter(keyword =>
+    const matchedKeywords = role.keywords.filter((keyword) =>
       new RegExp(`\\b${this.escapeRegExp(keyword)}\\b`, 'i').test(text)
     ).length;
 
