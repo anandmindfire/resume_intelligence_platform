@@ -5,6 +5,7 @@ import { Eye, Trash2, Download } from 'lucide-react';
 import type { ResumeTableProps } from '../types';
 import { resumeService } from '../services/resumeService';
 import { COPY } from '../constants';
+import { handleResumeFileClick } from '../auth/fileLinks';
 
 const TABLE_COLUMNS = 9;
 
@@ -90,7 +91,10 @@ export const ResumeTable: React.FC<ResumeTableProps> = ({
                       href={getResumeFileUrl(resume.id)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResumeFileClick(e, resume.id, resume.file_name);
+                      }}
                       className="p-2 text-info-600 hover:bg-info-50 rounded-lg transition-colors"
                       title="Download Original"
                       aria-label="Download Original"

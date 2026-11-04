@@ -25,6 +25,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -43,7 +51,7 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
           env:
             - name: API_GATEWAY_URL
@@ -51,6 +59,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "resume-platform.fullname" . }}-config
                   key: API_GATEWAY_URL
+            - name: OIDC_ISSUER_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "resume-platform.fullname" . }}-config
+                  key: OIDC_ISSUER_ORIGIN
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
           securityContext:
@@ -58,12 +71,10 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_BIND_SERVICE
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 3
@@ -71,7 +82,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
@@ -93,7 +104,7 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 80
+      targetPort: 8080
       protocol: TCP
   selector:
     app.kubernetes.io/name: frontend-dashboard

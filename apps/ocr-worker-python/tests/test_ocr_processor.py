@@ -14,7 +14,9 @@ import pytest
 from docx import Document
 from PIL import Image
 
-from constants import MIME_DOCX, MIME_PDF, OCR_DPI
+import zipfile
+
+from constants import MIME_DOCX, MIME_PDF, OCR_DPI, OCR_MAX_PDF_PAGES
 from processors import ocr_processor as op_module
 from processors.ocr_processor import OCRProcessor
 
@@ -36,8 +38,8 @@ def convert(monkeypatch):
 
 @pytest.fixture
 def no_pypdf2(monkeypatch):
-    """Simulate PyPDF2 not being installed (the production image state)."""
-    monkeypatch.setitem(sys.modules, "PyPDF2", None)
+    """Simulate pypdf not being installed (the production image state)."""
+    monkeypatch.setitem(sys.modules, "pypdf", None)
 
 
 def _fake_pypdf2(monkeypatch, page_texts):
@@ -46,9 +48,9 @@ def _fake_pypdf2(monkeypatch, page_texts):
         page = MagicMock()
         page.extract_text.return_value = text
         pages.append(page)
-    module = types.ModuleType("PyPDF2")
+    module = types.ModuleType("pypdf")
     module.PdfReader = MagicMock(return_value=MagicMock(pages=pages))
-    monkeypatch.setitem(sys.modules, "PyPDF2", module)
+    monkeypatch.setitem(sys.modules, "pypdf", module)
     return module
 
 
@@ -129,11 +131,11 @@ def test_extract_text_dispatches_on_mime_type(monkeypatch, png_file, mime, metho
     called.assert_called_once_with(png_file)
 
 
-def test_extract_text_unknown_mime_falls_back_to_ocr(png_file, tesseract, caplog):
+def test_extract_text_unknown_mime_is_rejected_not_guessed(png_file, tesseract, caplog):
     with caplog.at_level(logging.WARNING):
-        text = OCRProcessor().extract_text(png_file, "application/octet-stream")
-    assert text == "OCR TEXT"
-    assert "Unsupported MIME type" in caplog.text
+        with pytest.raises(ValueError, match="Unsupported MIME type"):
+            OCRProcessor().extract_text(png_file, "application/octet-stream")
+    tesseract.assert_not_called()
 
 
 def test_extract_text_propagates_extractor_errors(monkeypatch, png_file, caplog):
@@ -173,7 +175,7 @@ def test_pdf_without_pypdf2_is_ocrd_page_by_page(pdf_file, tesseract, convert, n
     text = OCRProcessor()._extract_from_pdf(pdf_file)
 
     assert text == "First page\nSecond page"
-    convert.assert_called_once_with(pdf_file, dpi=OCR_DPI)
+    convert.assert_called_once_with(pdf_file, dpi=OCR_DPI, first_page=1, last_page=OCR_MAX_PDF_PAGES)
     assert [c.args[0] for c in tesseract.call_args_list] == ["page1", "page2"]
     assert all(c.kwargs == {"lang": "eng"} for c in tesseract.call_args_list)
 
@@ -222,7 +224,46 @@ def test_extract_text_end_to_end_for_pdf(pdf_file, tesseract, convert, no_pypdf2
 
 
 def test_pypdf2_dependency_is_declared():
-    assert importlib.util.find_spec("PyPDF2") is not None
+    assert importlib.util.find_spec("pypdf") is not None
+
+
+# --------------------------------------------------------------------------- untrusted-input limits
+
+
+def test_text_layer_is_read_for_at_most_max_pages(monkeypatch, pdf_file, tesseract, convert):
+    module = _fake_pypdf2(monkeypatch, ["page"] * (OCR_MAX_PDF_PAGES + 5))
+    text = OCRProcessor()._extract_from_pdf(pdf_file)
+    assert text.count("page") == OCR_MAX_PDF_PAGES
+    convert.assert_not_called()
+    assert module.PdfReader.called
+
+
+def test_decompression_bomb_image_is_rejected(monkeypatch, tmp_path, tesseract):
+    path = tmp_path / "bomb.png"
+    Image.new("1", (200, 200)).save(path)
+    monkeypatch.setattr(op_module.Image, "MAX_IMAGE_PIXELS", 100)
+    with pytest.raises(Exception, match="decompression bomb|exceeds limit"):
+        OCRProcessor()._extract_from_image(str(path))
+    tesseract.assert_not_called()
+
+
+def test_docx_zip_bomb_is_rejected_before_parsing(tmp_path):
+    path = tmp_path / "bomb.docx"
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "A" * (5 * 1024 * 1024))
+    with pytest.raises(op_module.UnsafeDocumentError, match="compression ratio"):
+        OCRProcessor()._extract_from_docx(str(path))
+
+
+def test_docx_with_too_many_entries_is_rejected(monkeypatch, tmp_path):
+    monkeypatch.setattr(op_module, "DOCX_MAX_ENTRIES", 2)
+    path = tmp_path / "many.docx"
+    with zipfile.ZipFile(path, "w") as archive:
+        for i in range(3):
+            archive.writestr(f"f{i}.xml", "x")
+    with pytest.raises(op_module.UnsafeDocumentError, match="too many entries"):
+        op_module.check_docx_archive(str(path))
 
 
 # --------------------------------------------------------------------------- DOCX

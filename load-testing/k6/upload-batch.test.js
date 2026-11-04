@@ -4,7 +4,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { buildMultiPart } from './multipart.js';
+import { buildMultiPart, authHeaders } from './multipart.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 const BATCH_PATH = `${BASE_URL}/api/upload/multiple`;
@@ -23,7 +23,7 @@ export const options = {
 };
 
 export default function () {
-  const dummyPdf = 'dummy pdf content for batch load test';
+  const dummyPdf = '%PDF-1.4\n% dummy pdf content for batch load test';
   const files = [];
   for (let i = 0; i < FILES_PER_REQUEST; i++) {
     files.push({
@@ -34,7 +34,7 @@ export default function () {
   }
   const { body, boundary } = buildMultiPart(files);
   const params = {
-    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, ...authHeaders() },
     timeout: '90s',
   };
 

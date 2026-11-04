@@ -16,6 +16,12 @@ data:
   UPLOAD_SERVICE_URL: 'http://upload-service:3001'
   ANALYTICS_API_URL: 'http://analytics-api:3002'
   API_GATEWAY_URL: 'http://api-gateway:3000'
+  # End-user authentication (OIDC). The gateway refuses to start in production without issuer + audience.
+  # Replace with your IdP's values; OIDC_ISSUER_ORIGIN is scheme://host of the issuer (frontend CSP).
+  OIDC_ISSUER: 'https://idp.example.com/realms/resume-platform'
+  OIDC_AUDIENCE: 'resume-platform-api'
+  OIDC_REQUIRED_SCOPE: ''
+  OIDC_ISSUER_ORIGIN: 'https://idp.example.com'
   DB_POOL_MAX: '20'
   UPLOAD_MAX_CONCURRENT: '50'
   UPLOAD_DIRECTORY: '/app/uploads'

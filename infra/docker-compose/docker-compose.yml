@@ -10,10 +10,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Bound to loopback only: reachable from this machine for tooling, never from the network
     ports:
-      - "5432:5432"
+      - '127.0.0.1:5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resume_user}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-resume_user}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,13 +22,13 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '127.0.0.1:6379:6379'
     volumes:
       - redis_data:/data
       - ../redis/redis.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,12 +38,16 @@ services:
       context: ../..
       dockerfile: apps/api-gateway-node/Dockerfile
     ports:
-      - "3000:3000"
+      - '127.0.0.1:3000:3000'
     environment:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - UPLOAD_SERVICE_URL=http://upload-service-node:3001
       - ANALYTICS_API_URL=http://analytics-api-node:3002
+      # Optional locally: set to test login against a dev IdP (unset = no auth outside production)
+      - OIDC_ISSUER=${OIDC_ISSUER:-}
+      - OIDC_AUDIENCE=${OIDC_AUDIENCE:-}
+      - OIDC_REQUIRED_SCOPE=${OIDC_REQUIRED_SCOPE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,10 +59,11 @@ services:
       context: ../..
       dockerfile: apps/upload-service-node/Dockerfile
     ports:
-      - "3001:3001"
+      - '127.0.0.1:3001:3001'
     environment:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -71,7 +77,7 @@ services:
       context: ../..
       dockerfile: apps/analytics-api-node/Dockerfile
     ports:
-      - "3002:3002"
+      - '127.0.0.1:3002:3002'
     environment:
       - POSTGRES_HOST=postgres
     depends_on:
@@ -85,6 +91,9 @@ services:
     environment:
       - REDIS_HOST=redis
       - TESSERACT_LANG=eng
+    # Read-only: the OCR worker only ever reads uploads
+    volumes:
+      - uploads_data:/app/uploads:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -98,6 +107,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - POSTGRES_HOST=postgres
+      - UPLOAD_SERVICE_URL=http://upload-service-node:3001
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,8 +168,15 @@ services:
     build:
       context: ../..
       dockerfile: apps/frontend-dashboard/Dockerfile
+      args:
+        VITE_OIDC_AUTHORITY: ${OIDC_ISSUER:-}
+        VITE_OIDC_CLIENT_ID: ${OIDC_SPA_CLIENT_ID:-}
+        VITE_OIDC_SCOPE: ${OIDC_SPA_SCOPE:-}
+        VITE_OIDC_AUDIENCE: ${OIDC_SPA_AUDIENCE:-}
+    environment:
+      - OIDC_ISSUER_ORIGIN=${OIDC_ISSUER_ORIGIN:-}
     ports:
-      - "8080:80"
+      - '8080:8080'
     depends_on:
       - api-gateway-node
 

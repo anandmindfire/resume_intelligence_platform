@@ -14,6 +14,7 @@ _ENV_VARS = (
     "TESSERACT_LANG",
     "LOG_FORMAT",
     "LOG_LEVEL",
+    "UPLOAD_DIRECTORY",
 )
 
 

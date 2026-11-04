@@ -25,6 +25,14 @@ spec:
         app.kubernetes.io/part-of: resume-intelligence-platform
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -37,8 +45,6 @@ spec:
                       values:
                         - api-gateway
                 topologyKey: kubernetes.io/hostname
-      securityContext:
-        runAsNonRoot: false
       containers:
         - name: api-gateway
           image: api-gateway-node:latest

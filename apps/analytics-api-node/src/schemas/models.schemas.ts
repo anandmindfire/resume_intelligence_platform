@@ -19,11 +19,11 @@ export const ErrorResponseSchema = {
 export const ResumeSchema = {
   $id: 'Resume',
   type: 'object',
-  description: 'A resume row as stored in Postgres (parsed fields are null until parsing completes).',
+  description:
+    'A resume row as stored in Postgres (parsed fields are null until parsing completes).',
   properties: {
     id: { type: 'string', format: 'uuid' },
     file_name: { type: 'string', example: 'jane-doe.pdf' },
-    file_path: { type: 'string', example: '/app/uploads/jane-doe-1700000000000-ab12cd.pdf' },
     mime_type: { type: 'string', example: 'application/pdf' },
     file_size: { type: 'string', description: 'Size in bytes (BIGINT)', example: '48213' },
     status: { type: 'string', enum: ['uploaded', 'processing', 'parsed', 'matched', 'failed'] },
@@ -31,7 +31,12 @@ export const ResumeSchema = {
     email: { type: 'string', nullable: true, example: 'jane@example.com' },
     phone: { type: 'string', nullable: true, example: '+14155552671' },
     location: { type: 'string', nullable: true, example: 'Bangalore' },
-    skills: { type: 'array', items: { type: 'string' }, nullable: true, example: ['python', 'docker'] },
+    skills: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
+      example: ['python', 'docker'],
+    },
     experience: {
       type: 'array',
       nullable: true,
@@ -79,9 +84,18 @@ export const JobRoleSchema = {
   properties: {
     id: { type: 'string', format: 'uuid' },
     title: { type: 'string', example: 'Backend Engineer (Node.js)' },
-    requiredSkills: { type: 'array', items: { type: 'string' }, example: ['Node.js', 'PostgreSQL'] },
+    requiredSkills: {
+      type: 'array',
+      items: { type: 'string' },
+      example: ['Node.js', 'PostgreSQL'],
+    },
     preferredSkills: { type: 'array', items: { type: 'string' } },
-    requiredExperience: { type: 'integer', nullable: true, description: 'Minimum years', example: 3 },
+    requiredExperience: {
+      type: 'integer',
+      nullable: true,
+      description: 'Minimum years',
+      example: 3,
+    },
     keywords: { type: 'array', items: { type: 'string' } },
     location: { type: 'string', nullable: true, example: 'Remote' },
     description: { type: 'string', nullable: true },

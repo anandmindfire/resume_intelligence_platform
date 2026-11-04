@@ -15,6 +15,11 @@ data:
   UPLOAD_SERVICE_URL: {{ .Values.config.uploadServiceUrl | quote }}
   ANALYTICS_API_URL: {{ .Values.config.analyticsApiUrl | quote }}
   API_GATEWAY_URL: {{ .Values.config.apiGatewayUrl | quote }}
+  OIDC_ISSUER: {{ required "auth.oidcIssuer is required" .Values.auth.oidcIssuer | quote }}
+  OIDC_AUDIENCE: {{ required "auth.oidcAudience is required" .Values.auth.oidcAudience | quote }}
+  OIDC_REQUIRED_SCOPE: {{ .Values.auth.requiredScope | default "" | quote }}
+  OIDC_JWKS_URI: {{ .Values.auth.jwksUri | default "" | quote }}
+  OIDC_ISSUER_ORIGIN: {{ required "auth.oidcIssuerOrigin is required" .Values.auth.oidcIssuerOrigin | quote }}
   DB_POOL_MAX: {{ .Values.config.dbPoolMax | quote }}
   UPLOAD_MAX_CONCURRENT: {{ .Values.config.uploadMaxConcurrent | quote }}
   UPLOAD_DIRECTORY: {{ .Values.config.uploadDirectory | quote }}

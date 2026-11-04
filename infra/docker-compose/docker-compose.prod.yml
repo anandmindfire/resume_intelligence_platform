@@ -20,13 +20,17 @@ services:
           cpus: '1'
           memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
+    # Auth required; never published on the host (only reachable on the compose network)
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     deploy:
@@ -39,7 +43,7 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,13 +52,23 @@ services:
     build:
       context: ../..
       dockerfile: apps/api-gateway-node/Dockerfile
-    ports:
-      - "3000:3000"
     environment:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - UPLOAD_SERVICE_URL=http://upload-service-node:3001
       - ANALYTICS_API_URL=http://analytics-api-node:3002
+      # One proxy (the frontend nginx) sits in front of the gateway
+      - TRUST_PROXY=1
+      # End-user authentication: OIDC access tokens are verified here (see README "Authentication")
+      - OIDC_ISSUER=${OIDC_ISSUER:?Set OIDC_ISSUER}
+      - OIDC_AUDIENCE=${OIDC_AUDIENCE:?Set OIDC_AUDIENCE}
+      - OIDC_REQUIRED_SCOPE=${OIDC_REQUIRED_SCOPE:-}
+      - OIDC_JWKS_URI=${OIDC_JWKS_URI:-}
+      - NODE_ENV=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     deploy:
       replicas: 2
       resources:
@@ -72,11 +86,17 @@ services:
     build:
       context: ../..
       dockerfile: apps/upload-service-node/Dockerfile
-    ports:
-      - "3001:3001"
     environment:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
+      # Only reachable through the gateway, so X-Forwarded-For from one hop is trusted
+      - TRUST_PROXY=1
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN}
+      - NODE_ENV=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - uploads_data:/app/uploads
     deploy:
@@ -96,10 +116,14 @@ services:
     build:
       context: ../..
       dockerfile: apps/analytics-api-node/Dockerfile
-    ports:
-      - "3002:3002"
     environment:
       - POSTGRES_HOST=postgres
+      - TRUST_PROXY=1
+      - NODE_ENV=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     deploy:
       replicas: 2
       resources:
@@ -118,7 +142,10 @@ services:
       dockerfile: apps/ocr-worker-python/Dockerfile
     environment:
       - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - TESSERACT_LANG=eng
+    volumes:
+      - uploads_data:/app/uploads:ro
     deploy:
       replicas: 5
       resources:
@@ -138,6 +165,12 @@ services:
     environment:
       - REDIS_HOST=redis
       - POSTGRES_HOST=postgres
+      - UPLOAD_SERVICE_URL=http://upload-service-node:3001
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     deploy:
       replicas: 5
       resources:
@@ -156,6 +189,11 @@ services:
       context: ../..
       dockerfile: apps/matcher-worker-node/Dockerfile
     environment:
+      - NODE_ENV=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
     deploy:
@@ -176,6 +214,10 @@ services:
       context: ../..
       dockerfile: apps/insights-worker-python/Dockerfile
     environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - REDIS_HOST=redis
       - POSTGRES_HOST=postgres
     deploy:
@@ -196,6 +238,11 @@ services:
       context: ../..
       dockerfile: apps/export-worker-node/Dockerfile
     environment:
+      - NODE_ENV=production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
     volumes:
@@ -217,8 +264,15 @@ services:
     build:
       context: ../..
       dockerfile: apps/frontend-dashboard/Dockerfile
+      args:
+        VITE_OIDC_AUTHORITY: ${OIDC_ISSUER:?Set OIDC_ISSUER}
+        VITE_OIDC_CLIENT_ID: ${OIDC_SPA_CLIENT_ID:?Set OIDC_SPA_CLIENT_ID}
+        VITE_OIDC_SCOPE: ${OIDC_SPA_SCOPE:-openid profile email}
+        VITE_OIDC_AUDIENCE: ${OIDC_SPA_AUDIENCE:-}
+    environment:
+      - OIDC_ISSUER_ORIGIN=${OIDC_ISSUER_ORIGIN:?Set OIDC_ISSUER_ORIGIN (scheme://host of OIDC_ISSUER)}
     ports:
-      - "80:80"
+      - '80:8080'
     deploy:
       replicas: 2
       resources:

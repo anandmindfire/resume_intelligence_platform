@@ -24,7 +24,7 @@ services:
           cpus: '1'
           memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 10s
       retries: 5
@@ -48,7 +48,7 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 10s
       retries: 5
@@ -56,8 +56,10 @@ services:
   # Gateway: scale with upload load; forwards to upload-service-node (Swarm load-balances)
   api-gateway-node:
     image: resume-platform/api-gateway:latest
+    # Published for load testing (scripts/run-k6.sh). Remove in production so all traffic goes
+    # through the frontend nginx, otherwise TRUST_PROXY must stay unset on the gateway.
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -70,9 +72,15 @@ services:
       - backend
       - frontend
     labels:
-      - "com.resume-platform.component=gateway"
+      - 'com.resume-platform.component=gateway'
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -90,8 +98,7 @@ services:
   # Upload service: scale replicas for capacity (use load test to find target RPS per replica)
   upload-service-node:
     image: resume-platform/upload-service:latest
-    ports:
-      - "3001:3001"
+    # Internal service: no host port; reachable only via the api-gateway on the overlay network
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -106,10 +113,16 @@ services:
     networks:
       - backend
     labels:
-      - "com.resume-platform.component=upload"
-      - "com.resume-platform.scale-pool=upload"
+      - 'com.resume-platform.component=upload'
+      - 'com.resume-platform.scale-pool=upload'
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -129,8 +142,7 @@ services:
 
   analytics-api-node:
     image: resume-platform/analytics-api:latest
-    ports:
-      - "3002:3002"
+    # Internal service: no host port; reachable only via the api-gateway on the overlay network
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -140,7 +152,13 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -254,13 +272,13 @@ services:
   frontend-dashboard:
     image: resume-platform/frontend:latest
     ports:
-      - "80:80"
+      - '80:8080'
     networks:
       - frontend
     environment:
       - API_GATEWAY_URL=${API_GATEWAY_URL:-http://api-gateway-node:3000}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1/']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -281,7 +299,7 @@ volumes:
 networks:
   backend:
     driver: overlay
-    attachable: true   # allow docker run --network ... for init-db-swarm.sh
+    attachable: true # allow docker run --network ... for init-db-swarm.sh
   frontend:
     driver: overlay
     attachable: true

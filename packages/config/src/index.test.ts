@@ -22,6 +22,8 @@ const ENV_KEYS = [
   'UPLOAD_ALLOWED_TYPES',
   'UPLOAD_DIRECTORY',
   'UPLOAD_MAX_CONCURRENT',
+  'UPLOAD_MAX_FILES',
+  'INTERNAL_API_TOKEN',
   'API_GATEWAY_PORT',
   'API_GATEWAY_HOST',
   'UPLOAD_SERVICE_PORT',
@@ -92,6 +94,7 @@ describe('config', () => {
       ],
       directory: '/app/uploads',
       maxConcurrent: 0,
+      maxFiles: 20,
     });
     expect(config.apiGateway).toEqual({ port: 3000, host: '0.0.0.0' });
     expect(config.uploadService).toEqual({ port: 3001, url: 'http://localhost:3001' });
@@ -124,6 +127,7 @@ describe('config', () => {
       UPLOAD_ALLOWED_TYPES: 'application/pdf,text/plain',
       UPLOAD_DIRECTORY: '/tmp/uploads',
       UPLOAD_MAX_CONCURRENT: '25',
+      UPLOAD_MAX_FILES: '5',
       API_GATEWAY_PORT: '8080',
       API_GATEWAY_HOST: '127.0.0.1',
       UPLOAD_SERVICE_URL: 'http://upload:3001',
@@ -145,6 +149,7 @@ describe('config', () => {
       allowedTypes: ['application/pdf', 'text/plain'],
       directory: '/tmp/uploads',
       maxConcurrent: 25,
+      maxFiles: 5,
     });
     expect(config.apiGateway).toEqual({ port: 8080, host: '127.0.0.1' });
     expect(config.uploadService.url).toBe('http://upload:3001');

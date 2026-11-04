@@ -25,6 +25,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -109,6 +117,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -186,6 +202,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -242,6 +266,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -319,6 +351,14 @@ spec:
         {{- include "resume-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
+      securityContext:
+        # Images run as an unprivileged user; refuse to start if one ever runs as root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

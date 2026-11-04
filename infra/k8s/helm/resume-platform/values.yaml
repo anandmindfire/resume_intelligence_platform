@@ -7,6 +7,16 @@ namespace:
   name: resume-platform
 
 # Platform configuration
+# End-user authentication (OIDC access tokens verified by the API gateway).
+# The frontend image must be built with matching VITE_OIDC_AUTHORITY / VITE_OIDC_CLIENT_ID build args.
+auth:
+  oidcIssuer: 'https://idp.example.com/realms/resume-platform'
+  oidcAudience: 'resume-platform-api'
+  # scheme://host of oidcIssuer, allowed by the frontend CSP
+  oidcIssuerOrigin: 'https://idp.example.com'
+  requiredScope: ''
+  jwksUri: ''
+
 config:
   nodeEnv: 'production'
   postgresHost: 'postgres'
@@ -32,6 +42,8 @@ secrets:
   postgresPassword: 'postgres_production_password'
   redisPassword: ''
   jwtSecret: 'change_me_to_a_secure_jwt_secret_for_production'
+  # Shared secret for /api/internal/* service-to-service calls (generate: openssl rand -hex 32)
+  internalApiToken: 'change_me_to_a_random_internal_api_token'
 
 # PostgreSQL Database
 postgres:
